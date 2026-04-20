@@ -6,17 +6,18 @@
         <title>Sentinel Cam Control</title>
         <style>
             :root {
-                --bg: #0f1110;
-                --bg-soft: #151816;
-                --panel: rgba(28, 31, 28, 0.94);
-                --panel-soft: rgba(40, 44, 40, 0.86);
+                --bg: #0b0d0c;
+                --bg-soft: #121614;
+                --panel: rgba(22, 27, 24, 0.94);
+                --panel-soft: rgba(33, 39, 35, 0.92);
                 --line: rgba(255, 255, 255, 0.08);
-                --text: #f3f5f1;
-                --muted: #9ca498;
-                --accent: #c7ee88;
-                --accent-strong: #dff8b6;
+                --line-strong: rgba(206, 242, 128, 0.18);
+                --text: #f3f6f2;
+                --muted: #97a095;
+                --accent: #cef280;
+                --accent-strong: #e6f8b9;
                 --danger: #ff7f66;
-                --shadow: 0 30px 90px rgba(0, 0, 0, 0.4);
+                --shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
             }
 
             * {
@@ -29,9 +30,9 @@
                 font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
                 background:
-                    radial-gradient(circle at top left, rgba(199, 238, 136, 0.1), transparent 24%),
-                    radial-gradient(circle at bottom right, rgba(199, 238, 136, 0.06), transparent 20%),
-                    linear-gradient(180deg, #111412 0%, #0a0c0b 100%);
+                    radial-gradient(circle at top left, rgba(206, 242, 128, 0.1), transparent 24%),
+                    radial-gradient(circle at bottom right, rgba(206, 242, 128, 0.06), transparent 22%),
+                    linear-gradient(180deg, #101412 0%, #080a09 100%);
             }
 
             .shell {
@@ -40,7 +41,7 @@
                 padding: 14px;
                 border-radius: 32px;
                 border: 1px solid var(--line);
-                background: rgba(18, 20, 18, 0.92);
+                background: rgba(15, 18, 16, 0.94);
                 box-shadow: var(--shadow);
             }
 
@@ -59,43 +60,54 @@
             }
 
             .sidebar {
-                padding: 18px;
+                padding: 20px;
                 display: flex;
                 flex-direction: column;
                 gap: 18px;
             }
 
             .main {
-                padding: 18px;
+                padding: 22px;
                 display: grid;
-                grid-template-rows: auto minmax(0, 1fr) auto;
-                gap: 16px;
+                grid-template-rows: auto auto minmax(0, 1fr);
+                gap: 18px;
+                overflow: hidden;
             }
 
             .brand,
             .main-head,
-            .hero-toolbar,
+            .main-toolbar,
             .tile-head,
-            .rename-row {
+            .rename-row,
+            .modal-head,
+            .modal-toolbar {
                 display: flex;
                 gap: 12px;
             }
 
             .brand,
             .tile-head,
-            .rename-row {
+            .rename-row,
+            .modal-head,
+            .modal-toolbar {
                 align-items: center;
             }
 
             .main-head {
                 justify-content: space-between;
                 align-items: flex-start;
+                gap: 18px;
                 flex-wrap: wrap;
             }
 
+            .main-toolbar {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+
             .brand-mark {
-                width: 48px;
-                height: 48px;
+                width: 50px;
+                height: 50px;
                 border-radius: 16px;
                 display: grid;
                 place-items: center;
@@ -132,7 +144,7 @@
                 height: 8px;
                 border-radius: 50%;
                 background: var(--accent);
-                box-shadow: 0 0 12px rgba(199, 238, 136, 0.72);
+                box-shadow: 0 0 12px rgba(206, 242, 128, 0.75);
             }
 
             .camera-list {
@@ -144,8 +156,8 @@
             }
 
             .camera-tile {
-                padding: 12px;
-                border-radius: 22px;
+                padding: 14px;
+                border-radius: 24px;
                 border: 1px solid rgba(255, 255, 255, 0.06);
                 background: var(--panel-soft);
                 transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
@@ -153,50 +165,68 @@
 
             .camera-tile:hover {
                 transform: translateY(-1px);
-                border-color: rgba(199, 238, 136, 0.28);
+                border-color: rgba(206, 242, 128, 0.22);
             }
 
             .camera-tile.active {
-                background: linear-gradient(180deg, rgba(52, 61, 46, 0.9), rgba(38, 43, 36, 0.96));
-                border-color: rgba(199, 238, 136, 0.42);
-                box-shadow: inset 0 0 0 1px rgba(199, 238, 136, 0.12);
+                border-color: rgba(206, 242, 128, 0.34);
+                background: linear-gradient(180deg, rgba(46, 54, 45, 0.96), rgba(35, 40, 36, 0.96));
             }
 
-            .preview-button {
+            .tile-preview-button {
                 width: 100%;
-                padding: 0;
                 border: 0;
-                border-radius: 18px;
+                padding: 0;
+                margin: 12px 0;
+                border-radius: 22px;
                 overflow: hidden;
                 cursor: pointer;
-                background: #0b0c0b;
-                position: relative;
+                background: linear-gradient(180deg, #171b18 0%, #0d100f 100%);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                text-align: left;
+            }
+
+            .tile-preview-art {
                 aspect-ratio: 4 / 3;
-                margin: 10px 0;
+                position: relative;
+                display: grid;
+                place-items: center;
+                background:
+                    radial-gradient(circle at 50% 28%, rgba(206, 242, 128, 0.14), transparent 22%),
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
             }
 
-            .preview-button img,
-            .hero-feed img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
+            .tile-preview-art::before {
+                content: "";
+                width: 74px;
+                height: 74px;
+                border-radius: 50%;
+                border: 2px solid rgba(206, 242, 128, 0.38);
+                box-shadow:
+                    inset 0 0 0 12px rgba(206, 242, 128, 0.08),
+                    0 0 30px rgba(206, 242, 128, 0.08);
             }
 
-            .preview-overlay,
-            .hero-overlay {
+            .tile-preview-art::after {
+                content: "";
                 position: absolute;
-                inset: 0;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: rgba(206, 242, 128, 0.72);
+                box-shadow: 0 0 20px rgba(206, 242, 128, 0.35);
+            }
+
+            .tile-overlay {
+                position: absolute;
+                inset: auto 12px 12px 12px;
                 display: flex;
                 justify-content: space-between;
-                align-items: flex-start;
-                padding: 12px;
-                background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.02) 48%, rgba(0, 0, 0, 0.58) 100%);
-                pointer-events: none;
+                gap: 8px;
             }
 
             .chip {
-                background: rgba(10, 10, 10, 0.7);
+                background: rgba(10, 10, 10, 0.72);
             }
 
             .chip.alert {
@@ -211,7 +241,7 @@
                 padding: 11px 12px;
                 border-radius: 14px;
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                background: rgba(12, 13, 12, 0.78);
+                background: rgba(12, 13, 12, 0.8);
                 color: var(--text);
                 font-size: 0.92rem;
             }
@@ -236,19 +266,140 @@
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
 
-            .hero-feed {
+            .hero {
                 position: relative;
-                overflow: hidden;
                 border-radius: 30px;
-                border: 1px solid rgba(255, 255, 255, 0.06);
-                background: #090909;
-                min-height: 0;
+                overflow: hidden;
+                min-height: 360px;
+                border: 1px solid var(--line);
+                background:
+                    radial-gradient(circle at 70% 30%, rgba(206, 242, 128, 0.08), transparent 25%),
+                    linear-gradient(145deg, #171c18, #0d100f);
+                display: grid;
+                grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
             }
 
-            .hero-toolbar {
-                align-items: center;
+            .hero::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background-image:
+                    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+                background-size: 32px 32px;
+                pointer-events: none;
+            }
+
+            .hero-copy,
+            .hero-side {
+                position: relative;
+                z-index: 1;
+                padding: 28px;
+            }
+
+            .hero-copy {
+                display: flex;
+                flex-direction: column;
                 justify-content: space-between;
+            }
+
+            .eyebrow {
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                font-size: 0.76rem;
+                color: var(--accent);
+            }
+
+            .hero-title {
+                max-width: 9ch;
+                font-size: clamp(2.2rem, 5vw, 4.6rem);
+                line-height: 0.92;
+                margin-top: 10px;
+            }
+
+            .hero-side {
+                display: grid;
+                gap: 12px;
+                align-content: end;
+            }
+
+            .glass-card,
+            .stat {
+                padding: 18px;
+                border-radius: 22px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                background: rgba(255, 255, 255, 0.04);
+                backdrop-filter: blur(10px);
+            }
+
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 12px;
+            }
+
+            .stat strong {
+                display: block;
+                margin-top: 8px;
+                font-size: 1.02rem;
+            }
+
+            .cta {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                margin-top: 20px;
+            }
+
+            .empty-note {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 12px 14px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.05);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                color: var(--muted);
+            }
+
+            .fullscreen-modal {
+                position: fixed;
+                inset: 0;
+                z-index: 50;
+                display: none;
+                background:
+                    radial-gradient(circle at top left, rgba(206, 242, 128, 0.08), transparent 18%),
+                    rgba(5, 7, 6, 0.92);
+                backdrop-filter: blur(10px);
+            }
+
+            .fullscreen-modal.open {
+                display: block;
+            }
+
+            .modal-shell {
+                width: min(100% - 24px, 1600px);
+                height: calc(100% - 24px);
+                margin: 12px auto;
+                padding: 16px;
+                border-radius: 28px;
+                border: 1px solid var(--line);
+                background: rgba(13, 16, 14, 0.96);
+                box-shadow: var(--shadow);
+                display: grid;
+                grid-template-rows: auto auto minmax(0, 1fr) auto;
+                gap: 14px;
+            }
+
+            .modal-head {
+                justify-content: space-between;
+                align-items: flex-start;
                 flex-wrap: wrap;
+            }
+
+            .modal-toolbar {
+                flex-wrap: wrap;
+                justify-content: flex-end;
             }
 
             .switch {
@@ -267,32 +418,37 @@
                 accent-color: var(--accent);
             }
 
-            .stats {
+            .modal-feed {
+                position: relative;
+                overflow: hidden;
+                border-radius: 24px;
+                border: 1px solid var(--line-strong);
+                background: #070808;
+                min-height: 0;
+            }
+
+            .modal-feed img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .modal-overlay {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                padding: 14px;
+                background: linear-gradient(180deg, rgba(0, 0, 0, 0.36) 0%, rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.62) 100%);
+                pointer-events: none;
+            }
+
+            .modal-stats {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
                 gap: 12px;
-            }
-
-            .stat {
-                padding: 16px;
-                border-radius: 20px;
-                border: 1px solid rgba(255, 255, 255, 0.06);
-                background: var(--panel-soft);
-            }
-
-            .stat strong {
-                display: block;
-                margin-top: 8px;
-                font-size: 1.02rem;
-            }
-
-            .empty {
-                display: grid;
-                place-items: center;
-                border-radius: 28px;
-                border: 1px dashed rgba(255, 255, 255, 0.1);
-                color: var(--muted);
-                min-height: 420px;
             }
 
             @media (max-width: 1120px) {
@@ -300,7 +456,12 @@
                     grid-template-columns: 1fr;
                 }
 
-                .stats {
+                .hero {
+                    grid-template-columns: 1fr;
+                }
+
+                .stats,
+                .modal-stats {
                     grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
             }
@@ -314,12 +475,14 @@
                 }
 
                 .sidebar,
-                .main {
+                .main,
+                .modal-shell {
                     padding: 14px;
                     border-radius: 22px;
                 }
 
-                .stats {
+                .stats,
+                .modal-stats {
                     grid-template-columns: 1fr;
                 }
             }
@@ -333,7 +496,7 @@
                         <div class="brand-mark">SC</div>
                         <div>
                             <h1>Sentinel</h1>
-                            <p class="muted">Schnelles Kamera-Dashboard</p>
+                            <p class="muted">Ueberwachungskameras</p>
                         </div>
                     </div>
 
@@ -345,45 +508,103 @@
                 <main class="main">
                     <div class="main-head">
                         <div>
-                            <h2 id="detailTitle">Kamera auswaehlen</h2>
-                            <p class="muted" id="detailSubtitle">Links eine Vorschau antippen, rechts gross ansehen.</p>
+                            <p class="eyebrow">Control Room</p>
+                            <h2>Home</h2>
+                            <p class="muted">Waehle links eine Kamera. Die Vollbildansicht oeffnet sich erst nach dem Klick.</p>
                         </div>
 
-                        <div class="hero-toolbar">
-                            <label class="switch">
-                                <input type="checkbox" id="overlayToggle" checked />
-                                <span>Overlay in Grossansicht</span>
-                            </label>
-                            <button class="secondary" id="refreshButton">Ansicht aktualisieren</button>
+                        <div class="main-toolbar">
+                            <button class="secondary" id="refreshButton">Status aktualisieren</button>
                         </div>
                     </div>
 
-                    <section id="detailPanel" class="empty">
-                        <div>
-                            <h3>Keine Kamera aktiv</h3>
-                            <p>Die kleinen Vorschaufenster laufen bereits im Hintergrund.</p>
+                    <section class="hero">
+                        <div class="hero-copy">
+                            <div>
+                                <p class="eyebrow">Schneller Zugriff</p>
+                                <h3 class="hero-title">Monitoring ohne dauernd offene Grossansicht.</h3>
+                                <div class="cta">
+                                    <span class="empty-note">Klicke auf ein Vorschaufeld, um die Kamera im Vollbild zu oeffnen.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hero-side">
+                            <div class="glass-card">
+                                <p class="muted">Systemstatus</p>
+                                <strong id="motionValue">Warte auf Daten</strong>
+                            </div>
+                            <div class="glass-card">
+                                <p class="muted">Letztes Objekt</p>
+                                <strong id="labelValue">Warte auf Daten</strong>
+                            </div>
                         </div>
                     </section>
 
                     <section class="stats">
                         <article class="stat">
-                            <p class="muted">Bewegungsstatus</p>
-                            <strong id="motionValue">Warte auf Daten</strong>
-                        </article>
-                        <article class="stat">
-                            <p class="muted">Erkanntes Objekt</p>
-                            <strong id="labelValue">Warte auf Daten</strong>
-                        </article>
-                        <article class="stat">
                             <p class="muted">Analyseintervall</p>
                             <strong id="intervalValue">5 Sekunden</strong>
                         </article>
                         <article class="stat">
-                            <p class="muted">Snapshot-Modus</p>
-                            <strong>Performance optimiert</strong>
+                            <p class="muted">Ansichtsmodus</p>
+                            <strong>Home ohne Livebild</strong>
+                        </article>
+                        <article class="stat">
+                            <p class="muted">Performance</p>
+                            <strong>Snapshot optimiert</strong>
                         </article>
                     </section>
                 </main>
+            </div>
+        </div>
+
+        <div class="fullscreen-modal" id="fullscreenModal">
+            <div class="modal-shell">
+                <div class="modal-head">
+                    <div>
+                        <h2 id="modalTitle">Kamera</h2>
+                        <p class="muted" id="modalSubtitle">Liveansicht</p>
+                    </div>
+
+                    <div class="modal-toolbar">
+                        <label class="switch">
+                            <input type="checkbox" id="overlayToggle" checked />
+                            <span>Overlay anzeigen</span>
+                        </label>
+                        <button class="secondary" id="modalRefreshButton">Neu laden</button>
+                        <button class="primary" id="closeModalButton">Zurueck</button>
+                    </div>
+                </div>
+
+                <div class="badge"><span class="dot"></span><span id="modalSystemStatus">Liveansicht aktiv</span></div>
+
+                <section class="modal-feed">
+                    <img id="modalImage" alt="Kamera Livebild" />
+                    <div class="modal-overlay">
+                        <span id="modalMotionBadge" class="chip">Warte auf Daten</span>
+                        <span class="chip" id="modalOverlayState">Overlay an</span>
+                    </div>
+                </section>
+
+                <section class="modal-stats">
+                    <article class="stat">
+                        <p class="muted">Bewegungsstatus</p>
+                        <strong id="modalMotionValue">Warte auf Daten</strong>
+                    </article>
+                    <article class="stat">
+                        <p class="muted">Erkanntes Objekt</p>
+                        <strong id="modalLabelValue">Warte auf Daten</strong>
+                    </article>
+                    <article class="stat">
+                        <p class="muted">Analyseintervall</p>
+                        <strong id="modalIntervalValue">5 Sekunden</strong>
+                    </article>
+                    <article class="stat">
+                        <p class="muted">Ansicht</p>
+                        <strong>Vollbildkamera</strong>
+                    </article>
+                </section>
             </div>
         </div>
 
@@ -392,6 +613,7 @@
                 cameras: [],
                 selectedCameraId: null,
                 overlayEnabled: true,
+                modalOpen: false,
                 status: {
                     motion: "Warte auf Daten",
                     label: "Warte auf Daten",
@@ -401,19 +623,28 @@
             };
 
             const cameraList = document.getElementById("cameraList");
-            const detailPanel = document.getElementById("detailPanel");
-            const detailTitle = document.getElementById("detailTitle");
-            const detailSubtitle = document.getElementById("detailSubtitle");
-            const overlayToggle = document.getElementById("overlayToggle");
-            const refreshButton = document.getElementById("refreshButton");
             const systemStatus = document.getElementById("systemStatus");
             const motionValue = document.getElementById("motionValue");
             const labelValue = document.getElementById("labelValue");
             const intervalValue = document.getElementById("intervalValue");
+            const refreshButton = document.getElementById("refreshButton");
 
-            let tileRefreshTimer = null;
-            let detailRefreshTimer = null;
+            const fullscreenModal = document.getElementById("fullscreenModal");
+            const modalTitle = document.getElementById("modalTitle");
+            const modalSubtitle = document.getElementById("modalSubtitle");
+            const modalSystemStatus = document.getElementById("modalSystemStatus");
+            const modalImage = document.getElementById("modalImage");
+            const modalMotionBadge = document.getElementById("modalMotionBadge");
+            const modalOverlayState = document.getElementById("modalOverlayState");
+            const modalMotionValue = document.getElementById("modalMotionValue");
+            const modalLabelValue = document.getElementById("modalLabelValue");
+            const modalIntervalValue = document.getElementById("modalIntervalValue");
+            const overlayToggle = document.getElementById("overlayToggle");
+            const modalRefreshButton = document.getElementById("modalRefreshButton");
+            const closeModalButton = document.getElementById("closeModalButton");
+
             let statusRefreshTimer = null;
+            let modalRefreshTimer = null;
 
             function statusFor(cameraId) {
                 return state.status.cameras.find((camera) => camera.id === cameraId) || {
@@ -434,6 +665,7 @@
                     const cameraStatus = statusFor(camera.id);
                     const tile = document.createElement("article");
                     tile.className = "camera-tile";
+
                     if (camera.id === state.selectedCameraId) {
                         tile.classList.add("active");
                     }
@@ -447,11 +679,12 @@
                             <span class="badge">${camera.state}</span>
                         </div>
 
-                        <button class="preview-button" data-open-camera="${camera.id}">
-                            <img id="tile-image-${camera.id}" alt="${camera.name}" />
-                            <div class="preview-overlay">
-                                <span id="tile-motion-${camera.id}" class="chip ${cameraStatus.motion === "Bewegung erkannt" ? "alert" : ""}">${cameraStatus.motion}</span>
-                                <span id="tile-label-${camera.id}" class="chip">${cameraStatus.label}</span>
+                        <button class="tile-preview-button" data-open-camera="${camera.id}">
+                            <div class="tile-preview-art">
+                                <div class="tile-overlay">
+                                    <span id="tile-motion-${camera.id}" class="chip ${cameraStatus.motion === "Bewegung erkannt" ? "alert" : ""}">${cameraStatus.motion}</span>
+                                    <span id="tile-label-${camera.id}" class="chip">${cameraStatus.label}</span>
+                                </div>
                             </div>
                         </button>
 
@@ -468,10 +701,7 @@
 
                 document.querySelectorAll("[data-open-camera]").forEach((button) => {
                     button.addEventListener("click", () => {
-                        state.selectedCameraId = button.dataset.openCamera;
-                        renderCameraList();
-                        renderDetailPanel();
-                        refreshDetailSnapshot();
+                        openCamera(button.dataset.openCamera);
                     });
                 });
 
@@ -480,57 +710,6 @@
                         saveCameraName(button.dataset.saveCamera);
                     });
                 });
-            }
-
-            function renderDetailPanel() {
-                const camera = state.cameras.find((entry) => entry.id === state.selectedCameraId);
-
-                if (!camera) {
-                    detailTitle.textContent = "Kamera auswaehlen";
-                    detailSubtitle.textContent = "Links eine Vorschau antippen, rechts gross ansehen.";
-                    detailPanel.className = "empty";
-                    detailPanel.innerHTML = `
-                        <div>
-                            <h3>Keine Kamera aktiv</h3>
-                            <p>Die kleinen Vorschaufenster laufen bereits im Hintergrund.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const cameraStatus = statusFor(camera.id);
-                detailTitle.textContent = camera.name;
-                detailSubtitle.textContent = `${camera.location} · ${camera.description}`;
-                detailPanel.className = "";
-                detailPanel.innerHTML = `
-                    <div class="hero-feed">
-                        <img id="detailImage" alt="${camera.name}" />
-                        <div class="hero-overlay">
-                            <span id="detailMotion" class="chip ${cameraStatus.motion === "Bewegung erkannt" ? "alert" : ""}">${cameraStatus.motion}</span>
-                            <span class="chip">${state.overlayEnabled ? "Overlay an" : "Overlay aus"}</span>
-                        </div>
-                    </div>
-                `;
-            }
-
-            function refreshTileSnapshots() {
-                state.cameras.forEach((camera) => {
-                    const image = document.getElementById(`tile-image-${camera.id}`);
-                    if (image) {
-                        image.src = snapshotUrl(camera.id, false);
-                    }
-                });
-            }
-
-            function refreshDetailSnapshot() {
-                if (!state.selectedCameraId) {
-                    return;
-                }
-
-                const detailImage = document.getElementById("detailImage");
-                if (detailImage) {
-                    detailImage.src = snapshotUrl(state.selectedCameraId, state.overlayEnabled);
-                }
             }
 
             function syncStatusUi() {
@@ -557,25 +736,68 @@
                     }
                 });
 
-                const detailMotion = document.getElementById("detailMotion");
-                if (detailMotion && state.selectedCameraId) {
+                if (state.modalOpen && state.selectedCameraId) {
                     const cameraStatus = statusFor(state.selectedCameraId);
-                    detailMotion.textContent = cameraStatus.motion;
-                    detailMotion.classList.toggle(
+                    modalSystemStatus.textContent = `${cameraStatus.motion} · ${cameraStatus.label}`;
+                    modalMotionBadge.textContent = cameraStatus.motion;
+                    modalMotionBadge.classList.toggle(
                         "alert",
                         cameraStatus.motion === "Bewegung erkannt"
                     );
+                    modalMotionValue.textContent = cameraStatus.motion;
+                    modalLabelValue.textContent = cameraStatus.label;
+                    modalIntervalValue.textContent = `${state.status.classification_interval} Sekunden`;
                 }
+            }
+
+            function refreshModalSnapshot() {
+                if (!state.modalOpen || !state.selectedCameraId) {
+                    return;
+                }
+
+                modalImage.src = snapshotUrl(state.selectedCameraId, state.overlayEnabled);
+                modalOverlayState.textContent = state.overlayEnabled ? "Overlay an" : "Overlay aus";
+            }
+
+            function openCamera(cameraId) {
+                const camera = state.cameras.find((entry) => entry.id === cameraId);
+                if (!camera) {
+                    return;
+                }
+
+                state.selectedCameraId = cameraId;
+                state.modalOpen = true;
+                renderCameraList();
+
+                const cameraStatus = statusFor(cameraId);
+                modalTitle.textContent = camera.name;
+                modalSubtitle.textContent = `${camera.location} · ${camera.description}`;
+                modalMotionBadge.textContent = cameraStatus.motion;
+                modalMotionBadge.classList.toggle(
+                    "alert",
+                    cameraStatus.motion === "Bewegung erkannt"
+                );
+                modalMotionValue.textContent = cameraStatus.motion;
+                modalLabelValue.textContent = cameraStatus.label;
+                modalIntervalValue.textContent = `${state.status.classification_interval} Sekunden`;
+                modalSystemStatus.textContent = `${cameraStatus.motion} · ${cameraStatus.label}`;
+                fullscreenModal.classList.add("open");
+                refreshModalSnapshot();
+
+                clearInterval(modalRefreshTimer);
+                modalRefreshTimer = setInterval(refreshModalSnapshot, 320);
+            }
+
+            function closeCamera() {
+                state.modalOpen = false;
+                fullscreenModal.classList.remove("open");
+                clearInterval(modalRefreshTimer);
             }
 
             async function loadCameras() {
                 const response = await fetch("/api/cameras");
                 const data = await response.json();
                 state.cameras = data.cameras || [];
-
-                if (!state.selectedCameraId && state.cameras.length > 0) {
-                    state.selectedCameraId = state.cameras[0].id;
-                }
             }
 
             async function updateStatus() {
@@ -610,45 +832,49 @@
                 state.cameras = state.cameras.map((camera) =>
                     camera.id === cameraId ? data.camera : camera
                 );
+
+                if (state.selectedCameraId === cameraId && state.modalOpen) {
+                    modalTitle.textContent = data.camera.name;
+                }
+
                 renderCameraList();
-                renderDetailPanel();
-                refreshTileSnapshots();
-                refreshDetailSnapshot();
                 syncStatusUi();
             }
 
-            function startRefreshLoops() {
-                clearInterval(tileRefreshTimer);
-                clearInterval(detailRefreshTimer);
+            function startStatusLoop() {
                 clearInterval(statusRefreshTimer);
-
-                refreshTileSnapshots();
-                refreshDetailSnapshot();
                 updateStatus();
-
-                tileRefreshTimer = setInterval(refreshTileSnapshots, 1400);
-                detailRefreshTimer = setInterval(refreshDetailSnapshot, 320);
                 statusRefreshTimer = setInterval(updateStatus, 1800);
             }
 
             overlayToggle.addEventListener("change", (event) => {
                 state.overlayEnabled = event.target.checked;
-                renderDetailPanel();
-                refreshDetailSnapshot();
-                syncStatusUi();
+                refreshModalSnapshot();
+            });
+
+            modalRefreshButton.addEventListener("click", () => {
+                refreshModalSnapshot();
+                updateStatus();
+            });
+
+            closeModalButton.addEventListener("click", () => {
+                closeCamera();
             });
 
             refreshButton.addEventListener("click", () => {
-                refreshTileSnapshots();
-                refreshDetailSnapshot();
                 updateStatus();
+            });
+
+            fullscreenModal.addEventListener("click", (event) => {
+                if (event.target === fullscreenModal) {
+                    closeCamera();
+                }
             });
 
             async function init() {
                 await loadCameras();
                 renderCameraList();
-                renderDetailPanel();
-                startRefreshLoops();
+                startStatusLoop();
             }
 
             init();
