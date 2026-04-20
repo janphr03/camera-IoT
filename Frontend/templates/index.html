@@ -6,17 +6,16 @@
         <title>Sentinel Cam Control</title>
         <style>
             :root {
-                --bg: #07111f;
-                --panel: rgba(9, 22, 39, 0.82);
-                --panel-strong: #0d1d31;
-                --panel-soft: rgba(148, 163, 184, 0.12);
-                --line: rgba(148, 163, 184, 0.18);
-                --text: #edf4ff;
-                --muted: #9fb2c8;
-                --accent: #7ef0c9;
-                --accent-strong: #27c79f;
-                --warning: #ff8f70;
-                --shadow: 0 30px 80px rgba(0, 0, 0, 0.38);
+                --bg-top: #08111f;
+                --bg-bottom: #030712;
+                --panel: rgba(8, 18, 33, 0.82);
+                --panel-soft: rgba(148, 163, 184, 0.1);
+                --line: rgba(148, 163, 184, 0.16);
+                --text: #edf6ff;
+                --muted: #9fb1c7;
+                --accent: #78efca;
+                --alert: #ff8062;
+                --shadow: 0 32px 84px rgba(0, 0, 0, 0.45);
             }
 
             * {
@@ -29,88 +28,98 @@
                 font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
                 background:
-                    radial-gradient(circle at top left, rgba(126, 240, 201, 0.18), transparent 28%),
-                    radial-gradient(circle at top right, rgba(61, 111, 255, 0.22), transparent 22%),
-                    linear-gradient(180deg, #08111e 0%, #030711 100%);
+                    radial-gradient(circle at 10% 10%, rgba(120, 239, 202, 0.2), transparent 24%),
+                    radial-gradient(circle at 90% 0%, rgba(50, 107, 255, 0.18), transparent 24%),
+                    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
             }
 
             body::before {
                 content: "";
                 position: fixed;
                 inset: 0;
+                pointer-events: none;
                 background-image:
                     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
                 background-size: 42px 42px;
-                pointer-events: none;
-                opacity: 0.5;
+                opacity: 0.45;
             }
 
-            .shell {
+            .app-shell {
                 position: relative;
                 z-index: 1;
-                width: min(1240px, calc(100% - 32px));
-                margin: 24px auto;
-                padding: 24px;
+                width: min(1320px, calc(100% - 24px));
+                margin: 12px auto;
+                padding: 18px;
                 border: 1px solid var(--line);
                 border-radius: 28px;
-                background: rgba(4, 11, 22, 0.74);
+                background: rgba(4, 10, 20, 0.74);
                 box-shadow: var(--shadow);
                 backdrop-filter: blur(18px);
             }
 
-            .topbar {
+            .topbar,
+            .topbar-left,
+            .status-line,
+            .detail-head,
+            .detail-toolbar,
+            .camera-head,
+            .rename-row,
+            .detail-stats,
+            .stat-card {
                 display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 16px;
-                margin-bottom: 28px;
+                gap: 12px;
             }
 
-            .brand {
-                display: flex;
+            .topbar,
+            .camera-head,
+            .detail-head,
+            .rename-row {
                 align-items: center;
-                gap: 14px;
+                justify-content: space-between;
+            }
+
+            .topbar {
+                margin-bottom: 18px;
+            }
+
+            .topbar-left {
+                align-items: center;
             }
 
             .brand-mark {
                 width: 46px;
                 height: 46px;
-                border-radius: 14px;
+                border-radius: 16px;
                 display: grid;
                 place-items: center;
-                color: #02130f;
                 font-weight: 800;
-                background: linear-gradient(135deg, var(--accent) 0%, #b9ffd9 100%);
+                color: #02130f;
+                background: linear-gradient(135deg, var(--accent), #d5ffeb);
             }
 
-            .brand h1 {
+            h1,
+            h2,
+            h3,
+            p {
                 margin: 0;
-                font-size: 1.1rem;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
             }
 
-            .brand p,
-            .summary p,
-            .section-copy,
-            .camera-meta,
-            .module-copy,
-            .status-copy {
-                margin: 0;
+            .muted {
                 color: var(--muted);
             }
 
-            .pill {
+            .pill,
+            .chip {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                padding: 10px 14px;
-                border: 1px solid var(--line);
+                padding: 8px 12px;
                 border-radius: 999px;
+                border: 1px solid var(--line);
                 background: rgba(255, 255, 255, 0.04);
                 color: var(--text);
-                font-size: 0.92rem;
+                font-size: 0.84rem;
             }
 
             .dot {
@@ -121,453 +130,329 @@
                 box-shadow: 0 0 12px var(--accent);
             }
 
-            .hero {
+            .layout {
                 display: grid;
-                grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
-                gap: 24px;
-                margin-bottom: 24px;
+                grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
+                gap: 18px;
             }
 
             .panel {
                 border: 1px solid var(--line);
                 border-radius: 24px;
                 background: var(--panel);
-                padding: 24px;
-            }
-
-            .headline {
-                margin: 0 0 14px;
-                font-size: clamp(2rem, 5vw, 4rem);
-                line-height: 0.95;
-                max-width: 12ch;
-            }
-
-            .summary {
-                display: grid;
-                gap: 18px;
-            }
-
-            .summary-grid,
-            .modules,
-            .camera-list,
-            .status-grid {
-                display: grid;
-                gap: 14px;
-            }
-
-            .summary-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-
-            .metric,
-            .module-card,
-            .camera-card,
-            .status-card {
                 padding: 18px;
-                border-radius: 20px;
-                border: 1px solid rgba(148, 163, 184, 0.14);
-                background: var(--panel-soft);
             }
 
-            .metric strong,
-            .status-card strong {
-                display: block;
-                margin-top: 10px;
-                font-size: 1.2rem;
-            }
-
-            .label {
-                font-size: 0.82rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: var(--muted);
-            }
-
-            .live-panel {
-                display: grid;
-                gap: 14px;
-                align-content: start;
-            }
-
-            .preview-shell {
-                overflow: hidden;
-                border-radius: 22px;
-                border: 1px solid var(--line);
-                background: #050b14;
-                aspect-ratio: 16 / 10;
-                position: relative;
-            }
-
-            .preview-shell img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                display: block;
-            }
-
-            .preview-overlay {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                padding: 16px;
-                background: linear-gradient(180deg, rgba(2, 6, 12, 0.6) 0%, rgba(2, 6, 12, 0.05) 42%, rgba(2, 6, 12, 0.72) 100%);
-                pointer-events: none;
-            }
-
-            .preview-badge,
-            .preview-mode {
-                padding: 8px 12px;
-                border-radius: 999px;
-                font-size: 0.82rem;
-                background: rgba(6, 14, 25, 0.74);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-            }
-
-            .preview-mode.alert {
-                color: #ffd7cc;
-                border-color: rgba(255, 143, 112, 0.36);
-                background: rgba(67, 26, 18, 0.72);
-            }
-
-            .section-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-end;
-                gap: 16px;
+            .panel-title {
                 margin-bottom: 14px;
             }
 
-            .section-header h2 {
-                margin: 0 0 6px;
-                font-size: 1.2rem;
-            }
-
-            .camera-list {
-                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-                margin-bottom: 24px;
+            .camera-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 14px;
             }
 
             .camera-card {
+                padding: 14px;
+                border-radius: 22px;
+                border: 1px solid rgba(148, 163, 184, 0.14);
+                background: var(--panel-soft);
                 cursor: pointer;
                 transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
             }
 
             .camera-card:hover {
                 transform: translateY(-2px);
-                border-color: rgba(126, 240, 201, 0.36);
+                border-color: rgba(120, 239, 202, 0.3);
             }
 
             .camera-card.active {
-                border-color: rgba(126, 240, 201, 0.62);
-                background: rgba(30, 79, 72, 0.28);
-                box-shadow: inset 0 0 0 1px rgba(126, 240, 201, 0.24);
+                border-color: rgba(120, 239, 202, 0.56);
+                background: rgba(24, 67, 64, 0.3);
+                box-shadow: inset 0 0 0 1px rgba(120, 239, 202, 0.22);
             }
 
-            .camera-header,
-            .status-head {
+            .card-preview {
+                position: relative;
+                margin: 12px 0;
+                overflow: hidden;
+                border-radius: 18px;
+                aspect-ratio: 16 / 10;
+                background: #040914;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+            }
+
+            .card-preview img,
+            .detail-preview img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
+
+            .card-overlay,
+            .detail-overlay {
+                position: absolute;
+                inset: 0;
                 display: flex;
                 justify-content: space-between;
-                align-items: center;
-                gap: 12px;
-                margin-bottom: 10px;
+                align-items: flex-start;
+                padding: 12px;
+                background: linear-gradient(180deg, rgba(3, 8, 16, 0.56) 0%, rgba(3, 8, 16, 0.08) 45%, rgba(3, 8, 16, 0.72) 100%);
+                pointer-events: none;
             }
 
-            .camera-header strong,
-            .module-card strong {
-                font-size: 1rem;
+            .chip.alert,
+            .pill.alert {
+                color: #ffd9d1;
+                border-color: rgba(255, 128, 98, 0.26);
+                background: rgba(78, 25, 16, 0.7);
             }
 
-            .camera-state {
-                padding: 6px 10px;
-                border-radius: 999px;
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: #d8fff1;
-                background: rgba(39, 199, 159, 0.16);
+            .rename-row {
+                margin-top: 12px;
+                align-items: stretch;
             }
 
-            .camera-meta,
-            .module-copy,
-            .status-copy {
-                line-height: 1.5;
-            }
-
-            .actions {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 12px;
-                margin-top: 18px;
-            }
-
-            button {
-                border: 0;
-                border-radius: 16px;
-                padding: 14px 18px;
+            .rename-row input {
+                flex: 1;
+                min-width: 0;
+                padding: 12px 14px;
+                border-radius: 14px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: rgba(4, 11, 22, 0.8);
+                color: var(--text);
                 font-size: 0.95rem;
+            }
+
+            .rename-row button,
+            .detail-toolbar button {
+                border: 0;
+                border-radius: 14px;
+                padding: 12px 16px;
+                font-size: 0.92rem;
                 font-weight: 700;
                 cursor: pointer;
-                transition: transform 180ms ease, opacity 180ms ease, background 180ms ease;
             }
 
-            button:hover:not(:disabled) {
-                transform: translateY(-1px);
+            .save-button,
+            .action-button {
+                color: #06110e;
+                background: linear-gradient(135deg, var(--accent), #ccffe4);
             }
 
-            button:disabled {
-                cursor: not-allowed;
-                opacity: 0.48;
-            }
-
-            .primary {
-                color: #04110e;
-                background: linear-gradient(135deg, var(--accent) 0%, #c4ffe0 100%);
-            }
-
-            .secondary {
+            .ghost-button {
                 color: var(--text);
                 background: rgba(255, 255, 255, 0.08);
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
 
-            .modules {
-                grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-                margin-bottom: 24px;
+            .detail-preview {
+                position: relative;
+                overflow: hidden;
+                border-radius: 24px;
+                aspect-ratio: 16 / 10;
+                background: #040914;
+                border: 1px solid rgba(255, 255, 255, 0.06);
             }
 
-            .module-card {
-                min-height: 150px;
+            .detail-toolbar {
+                flex-wrap: wrap;
+                align-items: center;
+                margin: 12px 0 16px;
             }
 
-            .module-tag {
-                display: inline-block;
-                margin-bottom: 12px;
-                padding: 5px 10px;
+            .switch {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 14px;
                 border-radius: 999px;
-                background: rgba(126, 240, 201, 0.12);
-                color: var(--accent);
-                font-size: 0.75rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: rgba(255, 255, 255, 0.04);
             }
 
-            .status-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+            .switch input {
+                width: 18px;
+                height: 18px;
+                accent-color: var(--accent);
             }
 
-            .status-card strong {
+            .detail-stats {
+                flex-wrap: wrap;
+            }
+
+            .stat-card {
+                flex: 1;
+                min-width: 150px;
+                flex-direction: column;
+                padding: 16px;
+                border-radius: 18px;
+                border: 1px solid rgba(148, 163, 184, 0.14);
+                background: var(--panel-soft);
+            }
+
+            .stat-card strong {
                 font-size: 1.05rem;
             }
 
-            .status-card.alert {
-                background: rgba(81, 31, 19, 0.46);
-                border-color: rgba(255, 143, 112, 0.3);
+            .empty-state {
+                display: grid;
+                place-items: center;
+                min-height: 220px;
+                text-align: center;
+                border-radius: 22px;
+                border: 1px dashed rgba(148, 163, 184, 0.18);
+                color: var(--muted);
             }
 
             @media (max-width: 980px) {
-                .hero,
-                .status-grid,
-                .summary-grid {
+                .layout {
                     grid-template-columns: 1fr;
                 }
             }
 
             @media (max-width: 720px) {
-                .shell {
-                    width: min(100% - 16px, 100%);
-                    margin: 8px auto;
-                    padding: 16px;
+                .app-shell {
+                    width: calc(100% - 12px);
+                    margin: 6px auto;
+                    padding: 12px;
                     border-radius: 20px;
                 }
 
                 .topbar,
-                .section-header {
+                .topbar-left,
+                .detail-head,
+                .rename-row {
                     flex-direction: column;
                     align-items: flex-start;
-                }
-
-                .headline {
-                    max-width: none;
                 }
             }
         </style>
     </head>
     <body>
-        <div class="shell">
+        <div class="app-shell">
             <header class="topbar">
-                <div class="brand">
+                <div class="topbar-left">
                     <div class="brand-mark">SC</div>
                     <div>
                         <h1>Sentinel Cam Control</h1>
-                        <p>Monitoring-Zentrale fuer Raspberry-Pi-Kameras</p>
+                        <p class="muted">Kamerauebersicht mit Live-Previews und Detailansicht</p>
                     </div>
                 </div>
-                <div class="pill">
-                    <span class="dot"></span>
-                    <span id="systemHealth">System bereit</span>
+                <div class="status-line">
+                    <span class="pill"><span class="dot"></span><span id="systemStatus">System online</span></span>
                 </div>
             </header>
 
-            <section class="hero">
-                <div class="panel">
-                    <span class="label">Home</span>
-                    <h2 class="headline">Eine Kamera-App statt nur eines Roh-Streams.</h2>
-                    <div class="summary">
-                        <p>
-                            Erst Preview ansehen, dann bewusst eine Kamera waehlen und die
-                            Ueberwachung aktivieren. So wirkt die Anwendung wie ein
-                            echtes Kontrollzentrum.
-                        </p>
-                        <div class="summary-grid">
-                            <div class="metric">
-                                <span class="label">Ausgewaehlt</span>
-                                <strong id="selectedCameraName">Keine Kamera</strong>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Modus</span>
-                                <strong id="modeLabel">Preview</strong>
-                            </div>
-                            <div class="metric">
-                                <span class="label">Objektstatus</span>
-                                <strong id="detectionLabel">Erkennung inaktiv</strong>
-                            </div>
-                        </div>
+            <section class="layout">
+                <section class="panel">
+                    <div class="panel-title">
+                        <h2>Verfuegbare Kameras</h2>
+                        <p class="muted">Die Bewegungserkennung laeuft immer im Hintergrund. Kleine Kacheln bleiben sauber, die roten Boxen kommen nur in der Grossansicht.</p>
                     </div>
-                </div>
+                    <div class="camera-grid" id="cameraGrid"></div>
+                </section>
 
-                <aside class="panel live-panel">
-                    <div class="section-header">
+                <aside class="panel">
+                    <div class="detail-head">
                         <div>
-                            <h2>Live-Ansicht</h2>
-                            <p class="section-copy">
-                                Standardmaessig laeuft nur eine Vorschau. Die Analyse startet
-                                erst nach der Aktivierung.
-                            </p>
+                            <h2 id="detailTitle">Kamera auswaehlen</h2>
+                            <p class="muted" id="detailLocation">Eine Vorschau anklicken, um sie gross zu oeffnen.</p>
                         </div>
+                        <span class="pill" id="detailState">Keine Auswahl</span>
                     </div>
-                    <div class="preview-shell">
-                        <img
-                            id="liveFeed"
-                            src="/preview_feed"
-                            alt="Kamera Vorschau"
-                        />
-                        <div class="preview-overlay">
-                            <div class="preview-badge" id="previewLabel">Preview aktiv</div>
-                            <div class="preview-mode" id="previewModeBadge">Nur Vorschau</div>
+
+                    <div id="detailContent" class="empty-state">
+                        <div>
+                            <h3>Keine Kamera geoeffnet</h3>
+                            <p>Waehle links eine Vorschau aus.</p>
                         </div>
-                    </div>
-                    <div class="actions">
-                        <button class="primary" id="activateButton" disabled>
-                            Ueberwachung starten
-                        </button>
-                        <button class="secondary" id="previewButton">
-                            Zur Preview wechseln
-                        </button>
                     </div>
                 </aside>
-            </section>
-
-            <section class="panel">
-                <div class="section-header">
-                    <div>
-                        <h2>Kamera-Auswahl</h2>
-                        <p class="section-copy">
-                            Vor der Erkennung muss eine Kamera aktiv ausgewaehlt werden.
-                        </p>
-                    </div>
-                    <span class="pill" id="selectionHint">Noch keine Kamera gewaehlt</span>
-                </div>
-                <div class="camera-list" id="cameraList"></div>
-            </section>
-
-            <section class="modules">
-                <div class="module-card">
-                    <span class="module-tag">Jetzt aktiv</span>
-                    <strong>Live Preview</strong>
-                    <p class="module-copy">
-                        Ruhiger Vorschaumodus fuer schnellen Sichtcheck ohne laufende Analyse.
-                    </p>
-                </div>
-                <div class="module-card">
-                    <span class="module-tag">Jetzt aktiv</span>
-                    <strong>Bewegung + Objekt</strong>
-                    <p class="module-copy">
-                        Bewegung erkennen, Objekt markieren und Klassifikation einblenden.
-                    </p>
-                </div>
-                <div class="module-card">
-                    <span class="module-tag">Naechster Schritt</span>
-                    <strong>Ereignisprotokoll</strong>
-                    <p class="module-copy">
-                        Sinnvoll waere als Nächstes eine Timeline mit Zeitstempel und Snapshot.
-                    </p>
-                </div>
-                <div class="module-card">
-                    <span class="module-tag">Naechster Schritt</span>
-                    <strong>Alarmzonen</strong>
-                    <p class="module-copy">
-                        Bereiche definieren, in denen Bewegungen relevant sind, statt das ganze Bild zu analysieren.
-                    </p>
-                </div>
-            </section>
-
-            <section class="status-grid">
-                <div class="status-card">
-                    <div class="status-head">
-                        <span class="label">Systemstatus</span>
-                    </div>
-                    <strong id="motionStatus">Preview</strong>
-                    <p class="status-copy">Aktueller Bewegungsstatus der ausgewaehlten Kamera.</p>
-                </div>
-                <div class="status-card">
-                    <div class="status-head">
-                        <span class="label">Analyseintervall</span>
-                    </div>
-                    <strong id="intervalValue">5 Sekunden</strong>
-                    <p class="status-copy">Wie oft ein erkannter Ausschnitt klassifiziert wird.</p>
-                </div>
-                <div class="status-card" id="armingCard">
-                    <div class="status-head">
-                        <span class="label">Sicherungsmodus</span>
-                    </div>
-                    <strong id="armingState">Inaktiv</strong>
-                    <p class="status-copy">Die Erkennung ist erst aktiv, wenn du sie bewusst einschaltest.</p>
-                </div>
             </section>
         </div>
 
         <script>
             const state = {
-                selectedCameraId: null,
-                selectedCameraName: "Keine Kamera",
-                surveillanceActive: false,
                 cameras: [],
+                selectedCameraId: null,
+                overlayEnabled: true,
+                status: {
+                    motion: "Lade...",
+                    label: "Lade...",
+                    classification_interval: 5,
+                    cameras: [],
+                },
             };
 
-            const cameraList = document.getElementById("cameraList");
-            const activateButton = document.getElementById("activateButton");
-            const previewButton = document.getElementById("previewButton");
-            const liveFeed = document.getElementById("liveFeed");
-            const selectionHint = document.getElementById("selectionHint");
-            const selectedCameraName = document.getElementById("selectedCameraName");
-            const modeLabel = document.getElementById("modeLabel");
-            const detectionLabel = document.getElementById("detectionLabel");
-            const previewLabel = document.getElementById("previewLabel");
-            const previewModeBadge = document.getElementById("previewModeBadge");
-            const motionStatus = document.getElementById("motionStatus");
-            const intervalValue = document.getElementById("intervalValue");
-            const armingState = document.getElementById("armingState");
-            const armingCard = document.getElementById("armingCard");
-            const systemHealth = document.getElementById("systemHealth");
+            const cameraGrid = document.getElementById("cameraGrid");
+            const detailContent = document.getElementById("detailContent");
+            const detailTitle = document.getElementById("detailTitle");
+            const detailLocation = document.getElementById("detailLocation");
+            const detailState = document.getElementById("detailState");
+            const systemStatus = document.getElementById("systemStatus");
 
-            function renderCameras() {
-                cameraList.innerHTML = "";
+            function cameraFeedUrl(cameraId, overlay, bustCache = false) {
+                const suffix = bustCache ? `&ts=${Date.now()}` : "";
+                return `/camera_feed/${cameraId}?overlay=${overlay ? "1" : "0"}${suffix}`;
+            }
+
+            function getStatusForCamera(cameraId) {
+                return (
+                    state.status.cameras.find((camera) => camera.id === cameraId) || {
+                        motion: "Unbekannt",
+                        label: "Keine Daten",
+                        state: "offline",
+                    }
+                );
+            }
+
+            function setSelectedCamera(cameraId) {
+                state.selectedCameraId = cameraId;
+                renderCameraGrid();
+                renderDetailPanel();
+            }
+
+            async function saveCameraName(cameraId) {
+                const input = document.getElementById(`rename-${cameraId}`);
+                const name = input.value.trim();
+                if (!name) {
+                    return;
+                }
+
+                const response = await fetch(`/api/cameras/${cameraId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name }),
+                });
+
+                if (!response.ok) {
+                    systemStatus.textContent = "Speichern fehlgeschlagen";
+                    return;
+                }
+
+                const data = await response.json();
+                state.cameras = state.cameras.map((camera) =>
+                    camera.id === cameraId ? data.camera : camera
+                );
+
+                if (state.selectedCameraId === cameraId) {
+                    detailTitle.textContent = data.camera.name;
+                }
+
+                systemStatus.textContent = `${data.camera.name} gespeichert`;
+                renderCameraGrid();
+                renderDetailPanel();
+            }
+
+            function renderCameraGrid() {
+                cameraGrid.innerHTML = "";
 
                 state.cameras.forEach((camera) => {
-                    const card = document.createElement("button");
-                    card.type = "button";
+                    const status = getStatusForCamera(camera.id);
+                    const card = document.createElement("article");
                     card.className = "camera-card";
 
                     if (camera.id === state.selectedCameraId) {
@@ -575,48 +460,150 @@
                     }
 
                     card.innerHTML = `
-                        <div class="camera-header">
-                            <strong>${camera.name}</strong>
-                            <span class="camera-state">${camera.state}</span>
+                        <div class="camera-head">
+                            <div>
+                                <h3>${camera.name}</h3>
+                                <p class="muted">${camera.location}</p>
+                            </div>
+                            <span class="pill">${camera.state}</span>
                         </div>
-                        <p class="camera-meta">${camera.location}</p>
-                        <p class="camera-meta">${camera.description}</p>
-                        <p class="camera-meta">${camera.resolution}</p>
+                        <div class="card-preview" data-camera-open="${camera.id}">
+                            <img src="${cameraFeedUrl(camera.id, false)}" alt="${camera.name}" />
+                            <div class="card-overlay">
+                                <span id="motion-badge-${camera.id}" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
+                                <span id="label-badge-${camera.id}" class="chip">${status.label}</span>
+                            </div>
+                        </div>
+                        <p class="muted">${camera.description}</p>
+                        <p class="muted">${camera.resolution}</p>
+                        <div class="rename-row">
+                            <input id="rename-${camera.id}" type="text" value="${camera.name}" maxlength="40" />
+                            <button class="save-button" data-camera-save="${camera.id}">Speichern</button>
+                        </div>
                     `;
 
-                    card.addEventListener("click", () => {
-                        state.selectedCameraId = camera.id;
-                        state.selectedCameraName = camera.name;
-                        activateButton.disabled = false;
-                        selectionHint.textContent = `${camera.name} fuer Ueberwachung bereit`;
-                        selectedCameraName.textContent = camera.name;
-                        systemHealth.textContent = `${camera.name} online`;
-                        renderCameras();
-                    });
+                    cameraGrid.appendChild(card);
+                });
 
-                    cameraList.appendChild(card);
+                document.querySelectorAll("[data-camera-open]").forEach((element) => {
+                    element.addEventListener("click", () => {
+                        setSelectedCamera(element.dataset.cameraOpen);
+                    });
+                });
+
+                document.querySelectorAll("[data-camera-save]").forEach((button) => {
+                    button.addEventListener("click", () => {
+                        saveCameraName(button.dataset.cameraSave);
+                    });
                 });
             }
 
-            function updateModeUi() {
-                if (state.surveillanceActive) {
-                    modeLabel.textContent = "Ueberwachung aktiv";
-                    previewLabel.textContent = state.selectedCameraName;
-                    previewModeBadge.textContent = "Erkennung aktiv";
-                    previewModeBadge.classList.add("alert");
-                    armingState.textContent = "Aktiv";
-                    armingCard.classList.add("alert");
-                    liveFeed.src = `/surveillance_feed?ts=${Date.now()}`;
-                } else {
-                    modeLabel.textContent = "Preview";
-                    previewLabel.textContent = "Preview aktiv";
-                    previewModeBadge.textContent = "Nur Vorschau";
-                    previewModeBadge.classList.remove("alert");
-                    armingState.textContent = "Inaktiv";
-                    armingCard.classList.remove("alert");
-                    detectionLabel.textContent = "Erkennung inaktiv";
-                    motionStatus.textContent = "Preview";
-                    liveFeed.src = `/preview_feed?ts=${Date.now()}`;
+            function renderDetailPanel() {
+                const camera = state.cameras.find(
+                    (entry) => entry.id === state.selectedCameraId
+                );
+
+                if (!camera) {
+                    detailTitle.textContent = "Kamera auswaehlen";
+                    detailLocation.textContent = "Eine Vorschau anklicken, um sie gross zu oeffnen.";
+                    detailState.textContent = "Keine Auswahl";
+                    detailContent.className = "empty-state";
+                    detailContent.innerHTML = `
+                        <div>
+                            <h3>Keine Kamera geoeffnet</h3>
+                            <p>Waehle links eine Vorschau aus.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const status = getStatusForCamera(camera.id);
+                detailTitle.textContent = camera.name;
+                detailLocation.textContent = `${camera.location} · ${camera.description}`;
+                detailState.textContent = camera.state;
+                detailContent.className = "";
+                detailContent.innerHTML = `
+                    <div class="detail-preview">
+                        <img id="detailFeed" src="${cameraFeedUrl(camera.id, state.overlayEnabled)}" alt="${camera.name}" />
+                        <div class="detail-overlay">
+                            <span id="detailMotionBadge" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
+                            <span class="chip">${state.overlayEnabled ? "Overlay aktiv" : "Overlay aus"}</span>
+                        </div>
+                    </div>
+                    <div class="detail-toolbar">
+                        <label class="switch">
+                            <input type="checkbox" id="overlayToggle" ${state.overlayEnabled ? "checked" : ""} />
+                            <span>Rote Boxen und Labels anzeigen</span>
+                        </label>
+                        <button class="ghost-button" id="refreshDetail">Feed neu laden</button>
+                    </div>
+                    <div class="detail-stats">
+                        <div class="stat-card">
+                            <span class="muted">Bewegung</span>
+                            <strong id="detailMotionValue">${status.motion}</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span class="muted">Erkanntes Objekt</span>
+                            <strong id="detailLabelValue">${status.label}</strong>
+                        </div>
+                        <div class="stat-card">
+                            <span class="muted">Analyseintervall</span>
+                            <strong>${state.status.classification_interval} Sekunden</strong>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById("overlayToggle").addEventListener("change", (event) => {
+                    state.overlayEnabled = event.target.checked;
+                    renderDetailPanel();
+                });
+
+                document.getElementById("refreshDetail").addEventListener("click", () => {
+                    const detailFeed = document.getElementById("detailFeed");
+                    detailFeed.src = cameraFeedUrl(camera.id, state.overlayEnabled, true);
+                });
+            }
+
+            function syncStatusUi() {
+                state.cameras.forEach((camera) => {
+                    const status = getStatusForCamera(camera.id);
+                    const motionBadge = document.getElementById(`motion-badge-${camera.id}`);
+                    const labelBadge = document.getElementById(`label-badge-${camera.id}`);
+
+                    if (motionBadge) {
+                        motionBadge.textContent = status.motion;
+                        motionBadge.classList.toggle(
+                            "alert",
+                            status.motion === "Bewegung erkannt"
+                        );
+                    }
+
+                    if (labelBadge) {
+                        labelBadge.textContent = status.label;
+                    }
+                });
+
+                if (state.selectedCameraId) {
+                    const selectedStatus = getStatusForCamera(state.selectedCameraId);
+                    const detailMotionBadge = document.getElementById("detailMotionBadge");
+                    const detailMotionValue = document.getElementById("detailMotionValue");
+                    const detailLabelValue = document.getElementById("detailLabelValue");
+
+                    if (detailMotionBadge) {
+                        detailMotionBadge.textContent = selectedStatus.motion;
+                        detailMotionBadge.classList.toggle(
+                            "alert",
+                            selectedStatus.motion === "Bewegung erkannt"
+                        );
+                    }
+
+                    if (detailMotionValue) {
+                        detailMotionValue.textContent = selectedStatus.motion;
+                    }
+
+                    if (detailLabelValue) {
+                        detailLabelValue.textContent = selectedStatus.label;
+                    }
                 }
             }
 
@@ -624,40 +611,29 @@
                 const response = await fetch("/api/cameras");
                 const data = await response.json();
                 state.cameras = data.cameras || [];
-                renderCameras();
+
             }
 
             async function updateStatus() {
                 try {
                     const response = await fetch("/api/status");
-                    const data = await response.json();
-
-                    motionStatus.textContent = data.motion;
-                    detectionLabel.textContent = data.label;
-                    intervalValue.textContent = `${data.classification_interval} Sekunden`;
+                    state.status = await response.json();
+                    systemStatus.textContent = `${state.status.motion} · ${state.status.label}`;
+                    syncStatusUi();
                 } catch (error) {
-                    systemHealth.textContent = "Status momentan nicht erreichbar";
+                    systemStatus.textContent = "Status nicht erreichbar";
                 }
             }
 
-            activateButton.addEventListener("click", () => {
-                if (!state.selectedCameraId) {
-                    return;
-                }
+            async function init() {
+                await loadCameras();
+                renderCameraGrid();
+                renderDetailPanel();
+                await updateStatus();
+                setInterval(updateStatus, 3000);
+            }
 
-                state.surveillanceActive = true;
-                updateModeUi();
-            });
-
-            previewButton.addEventListener("click", () => {
-                state.surveillanceActive = false;
-                updateModeUi();
-            });
-
-            loadCameras();
-            updateModeUi();
-            updateStatus();
-            setInterval(updateStatus, 4000);
+            init();
         </script>
     </body>
 </html>

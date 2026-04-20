@@ -1,10 +1,12 @@
 from pathlib import Path
 import base64
+import json
+import threading
 import time
 
 import cv2
 from dotenv import load_dotenv
-from flask import Flask, Response, jsonify, render_template
+from flask import Flask, Response, jsonify, render_template, request
 from openai import OpenAI
 from picamera2 import Picamera2
 
@@ -21,14 +23,21 @@ class CameraApp:
         template_dir = PROJECT_ROOT / "Frontend" / "templates"
         self.app = Flask(__name__, template_folder=str(template_dir))
         self.app.add_url_rule("/", "index", self.index)
-        self.app.add_url_rule("/preview_feed", "preview_feed", self.preview_feed)
-        self.app.add_url_rule(
-            "/surveillance_feed", "surveillance_feed", self.surveillance_feed
-        )
         self.app.add_url_rule("/api/cameras", "camera_options", self.camera_options)
         self.app.add_url_rule("/api/status", "status", self.status)
+        self.app.add_url_rule(
+            "/api/cameras/<camera_id>",
+            "update_camera",
+            self.update_camera,
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/camera_feed/<camera_id>", "camera_feed", self.camera_feed
+        )
 
         self.client = OpenAI()
+        self.camera_config_path = PROJECT_ROOT / "Backend" / "cameras.json"
+        self.cameras = self.load_camera_config()
 
         self.picam2 = Picamera2()
         config = self.picam2.create_video_configuration(
@@ -41,30 +50,55 @@ class CameraApp:
         self.previous_gray = None
         self.min_area = 1200
         self.padding = 35
-
         self.last_classification_time = 0
         self.classification_interval = 5
-        self.current_label = "Kein Objekt erkannt"
-        self.last_motion_status = "Bereit"
+        self.current_label = "Noch keine Klassifikation"
+        self.last_motion_status = "Initialisiere"
+        self.last_detection_box = None
+        self.latest_raw_frame = None
+        self.latest_overlay_frame = None
+        self.latest_frame_timestamp = 0.0
+        self.frame_lock = threading.Lock()
+
+        self.capture_thread = threading.Thread(target=self.capture_loop, daemon=True)
+        self.capture_thread.start()
+
+    def load_camera_config(self):
+        default_config = [
+            {
+                "id": "pi-main",
+                "name": "Eingang Nord",
+                "location": "Haupteingang",
+                "resolution": "640 x 480",
+                "state": "online",
+                "description": "Raspberry-Pi-Kameramodul",
+            }
+        ]
+
+        if not self.camera_config_path.exists():
+            self.camera_config_path.write_text(
+                json.dumps(default_config, indent=2), encoding="utf-8"
+            )
+            return default_config
+
+        try:
+            return json.loads(self.camera_config_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            self.camera_config_path.write_text(
+                json.dumps(default_config, indent=2), encoding="utf-8"
+            )
+            return default_config
+
+    def save_camera_config(self):
+        self.camera_config_path.write_text(
+            json.dumps(self.cameras, indent=2), encoding="utf-8"
+        )
 
     def index(self):
         return render_template("index.html")
 
     def camera_options(self):
-        return jsonify(
-            {
-                "cameras": [
-                    {
-                        "id": "pi-main",
-                        "name": "Pi Kamera",
-                        "location": "Haupteingang",
-                        "resolution": "640 x 480",
-                        "state": "online",
-                        "description": "Direkter Raspberry-Pi-Kameramodul-Feed",
-                    }
-                ]
-            }
-        )
+        return jsonify({"cameras": self.cameras})
 
     def status(self):
         return jsonify(
@@ -72,8 +106,33 @@ class CameraApp:
                 "motion": self.last_motion_status,
                 "label": self.current_label,
                 "classification_interval": self.classification_interval,
+                "last_frame_timestamp": self.latest_frame_timestamp,
+                "cameras": [
+                    {
+                        "id": camera["id"],
+                        "motion": self.last_motion_status,
+                        "label": self.current_label,
+                        "state": camera["state"],
+                    }
+                    for camera in self.cameras
+                ],
             }
         )
+
+    def update_camera(self, camera_id):
+        payload = request.get_json(silent=True) or {}
+        new_name = (payload.get("name") or "").strip()
+
+        if not new_name:
+            return jsonify({"error": "Name darf nicht leer sein."}), 400
+
+        for camera in self.cameras:
+            if camera["id"] == camera_id:
+                camera["name"] = new_name[:40]
+                self.save_camera_config()
+                return jsonify({"camera": camera})
+
+        return jsonify({"error": "Kamera nicht gefunden."}), 404
 
     def classify_object_with_openai(self, roi):
         ok, buffer = cv2.imencode(".jpg", roi)
@@ -94,7 +153,7 @@ class CameraApp:
                                 "type": "input_text",
                                 "text": (
                                     "Nenne nur das Hauptobjekt in diesem Bildausschnitt. "
-                                    "Antworte extrem kurz, nur 1 bis 3 Wörter, auf Deutsch. "
+                                    "Antworte extrem kurz, nur 1 bis 3 Woerter, auf Deutsch. "
                                     "Beispiele: Mensch, Hund, Katze, Auto, Vogel, Unbekanntes Objekt."
                                 ),
                             },
@@ -109,18 +168,19 @@ class CameraApp:
 
             label = response.output_text.strip()
             return label if label else "Unbekanntes Objekt"
-
-        except Exception as e:
-            print(f"OpenAI-Fehler: {e}")
+        except Exception as exc:
+            print(f"OpenAI-Fehler: {exc}")
             return self.current_label
 
-    def process_motion(self, frame_bgr):
+    def analyze_frame(self, frame_bgr):
+        overlay_frame = frame_bgr.copy()
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
         if self.previous_gray is None:
             self.previous_gray = gray
-            return frame_bgr
+            self.last_motion_status = "System bereit"
+            return overlay_frame
 
         frame_delta = cv2.absdiff(self.previous_gray, gray)
         _, thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)
@@ -132,7 +192,6 @@ class CameraApp:
 
         motion_detected = False
         frame_height, frame_width = frame_bgr.shape[:2]
-
         min_x = frame_width
         min_y = frame_height
         max_x = 0
@@ -149,13 +208,13 @@ class CameraApp:
             max_y = max(max_y, y + h)
             motion_detected = True
 
+        self.last_detection_box = None
         if motion_detected:
             min_x = max(0, min_x - self.padding)
             min_y = max(0, min_y - self.padding)
             max_x = min(frame_width, max_x + self.padding)
             max_y = min(frame_height, max_y + self.padding)
-
-            cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
+            self.last_detection_box = (min_x, min_y, max_x, max_y)
 
             current_time = time.time()
             if current_time - self.last_classification_time >= self.classification_interval:
@@ -164,9 +223,10 @@ class CameraApp:
                 self.last_classification_time = current_time
                 print(f"[{time.strftime('%H:%M:%S')}] Erkannt: {self.current_label}")
 
+            cv2.rectangle(overlay_frame, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
             label_y = max(25, min_y - 10)
             cv2.putText(
-                frame_bgr,
+                overlay_frame,
                 self.current_label,
                 (min_x, label_y),
                 cv2.FONT_HERSHEY_SIMPLEX,
@@ -174,14 +234,14 @@ class CameraApp:
                 (0, 0, 255),
                 2,
             )
+            self.last_motion_status = "Bewegung erkannt"
+        else:
+            self.last_motion_status = "Keine Bewegung"
 
-        status_text = "Bewegung erkannt" if motion_detected else "Keine Bewegung"
         status_color = (0, 0, 255) if motion_detected else (0, 255, 0)
-        self.last_motion_status = status_text
-
         cv2.putText(
-            frame_bgr,
-            status_text,
+            overlay_frame,
+            self.last_motion_status,
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
@@ -190,40 +250,50 @@ class CameraApp:
         )
 
         self.previous_gray = gray
-        return frame_bgr
+        return overlay_frame
 
-    def generate_frames(self, detect_motion=False):
+    def encode_frame(self, frame_bgr):
+        ok, buffer = cv2.imencode(".jpg", frame_bgr)
+        return buffer.tobytes() if ok else None
+
+    def capture_loop(self):
         while True:
             frame = self.picam2.capture_array()
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            overlay_frame = self.analyze_frame(frame_bgr)
+            raw_bytes = self.encode_frame(frame_bgr)
+            overlay_bytes = self.encode_frame(overlay_frame)
 
-            if detect_motion:
-                frame_bgr = self.process_motion(frame_bgr)
-            else:
-                self.previous_gray = None
-                self.last_motion_status = "Preview"
-                self.current_label = "Erkennung inaktiv"
+            if raw_bytes and overlay_bytes:
+                with self.frame_lock:
+                    self.latest_raw_frame = raw_bytes
+                    self.latest_overlay_frame = overlay_bytes
+                    self.latest_frame_timestamp = time.time()
 
-            ok, buffer = cv2.imencode(".jpg", frame_bgr)
-            if not ok:
+    def generate_stream(self, overlay=False):
+        while True:
+            with self.frame_lock:
+                frame_bytes = (
+                    self.latest_overlay_frame if overlay else self.latest_raw_frame
+                )
+
+            if frame_bytes is None:
+                time.sleep(0.05)
                 continue
-
-            frame_bytes = buffer.tobytes()
 
             yield (
                 b"--frame\r\n"
                 b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
             )
+            time.sleep(0.05)
 
-    def preview_feed(self):
-        return Response(
-            self.generate_frames(detect_motion=False),
-            mimetype="multipart/x-mixed-replace; boundary=frame",
-        )
+    def camera_feed(self, camera_id):
+        if not any(camera["id"] == camera_id for camera in self.cameras):
+            return jsonify({"error": "Kamera nicht gefunden."}), 404
 
-    def surveillance_feed(self):
+        overlay = request.args.get("overlay", "0") == "1"
         return Response(
-            self.generate_frames(detect_motion=True),
+            self.generate_stream(overlay=overlay),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 

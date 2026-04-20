@@ -1,0 +1,10 @@
+[
+  {
+    "id": "pi-main",
+    "name": "Eingang Nord",
+    "location": "Haupteingang",
+    "resolution": "640 x 480",
+    "state": "online",
+    "description": "Raspberry-Pi-Kameramodul"
+  }
+]
