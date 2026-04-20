@@ -6,16 +6,17 @@
         <title>Sentinel Cam Control</title>
         <style>
             :root {
-                --bg-top: #08111f;
-                --bg-bottom: #030712;
-                --panel: rgba(8, 18, 33, 0.82);
-                --panel-soft: rgba(148, 163, 184, 0.1);
-                --line: rgba(148, 163, 184, 0.16);
-                --text: #edf6ff;
-                --muted: #9fb1c7;
-                --accent: #78efca;
-                --alert: #ff8062;
-                --shadow: 0 32px 84px rgba(0, 0, 0, 0.45);
+                --bg: #151515;
+                --bg-soft: #1d1d1d;
+                --panel: #202020;
+                --panel-soft: #272727;
+                --line: rgba(255, 255, 255, 0.08);
+                --text: #f3f3f3;
+                --muted: #9b9b9b;
+                --accent: #b8d799;
+                --accent-strong: #d4efb5;
+                --danger: #ff6d57;
+                --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
             }
 
             * {
@@ -28,74 +29,63 @@
                 font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
                 background:
-                    radial-gradient(circle at 10% 10%, rgba(120, 239, 202, 0.2), transparent 24%),
-                    radial-gradient(circle at 90% 0%, rgba(50, 107, 255, 0.18), transparent 24%),
-                    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+                    radial-gradient(circle at top left, rgba(184, 215, 153, 0.08), transparent 20%),
+                    linear-gradient(180deg, #1a1a1a 0%, #111111 100%);
             }
 
-            body::before {
-                content: "";
-                position: fixed;
-                inset: 0;
-                pointer-events: none;
-                background-image:
-                    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-                background-size: 42px 42px;
-                opacity: 0.45;
-            }
-
-            .app-shell {
-                position: relative;
-                z-index: 1;
+            .app {
                 width: min(1320px, calc(100% - 24px));
                 margin: 12px auto;
-                padding: 18px;
+                padding: 14px;
                 border: 1px solid var(--line);
-                border-radius: 28px;
-                background: rgba(4, 10, 20, 0.74);
+                border-radius: 34px;
+                background: rgba(25, 25, 25, 0.96);
                 box-shadow: var(--shadow);
-                backdrop-filter: blur(18px);
             }
 
-            .topbar,
-            .topbar-left,
-            .status-line,
-            .detail-head,
-            .detail-toolbar,
-            .camera-head,
-            .rename-row,
-            .detail-stats,
-            .stat-card {
+            .layout {
+                display: grid;
+                grid-template-columns: 290px minmax(0, 1fr);
+                gap: 14px;
+                min-height: calc(100vh - 48px);
+            }
+
+            .sidebar,
+            .main {
+                border: 1px solid var(--line);
+                border-radius: 28px;
+                background: var(--panel);
+            }
+
+            .sidebar {
+                padding: 18px;
                 display: flex;
+                flex-direction: column;
+                gap: 18px;
+            }
+
+            .main {
+                padding: 18px;
+                display: flex;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .brand {
+                display: flex;
+                align-items: center;
                 gap: 12px;
             }
 
-            .topbar,
-            .camera-head,
-            .detail-head,
-            .rename-row {
-                align-items: center;
-                justify-content: space-between;
-            }
-
-            .topbar {
-                margin-bottom: 18px;
-            }
-
-            .topbar-left {
-                align-items: center;
-            }
-
             .brand-mark {
-                width: 46px;
-                height: 46px;
-                border-radius: 16px;
+                width: 44px;
+                height: 44px;
+                border-radius: 15px;
                 display: grid;
                 place-items: center;
+                background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+                color: #223014;
                 font-weight: 800;
-                color: #02130f;
-                background: linear-gradient(135deg, var(--accent), #d5ffeb);
             }
 
             h1,
@@ -109,158 +99,192 @@
                 color: var(--muted);
             }
 
-            .pill,
-            .chip {
+            .nav-dots {
+                display: grid;
+                gap: 14px;
+                justify-items: center;
+                padding: 8px 0;
+            }
+
+            .nav-dots span {
+                width: 6px;
+                height: 6px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.35);
+            }
+
+            .nav-dots span.active {
+                height: 24px;
+                background: var(--accent);
+            }
+
+            .camera-stack {
+                display: grid;
+                gap: 14px;
+                align-content: start;
+            }
+
+            .camera-tile {
+                padding: 12px;
+                border-radius: 22px;
+                background: var(--panel-soft);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                cursor: pointer;
+                transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+            }
+
+            .camera-tile:hover {
+                transform: translateY(-1px);
+                border-color: rgba(184, 215, 153, 0.35);
+            }
+
+            .camera-tile.active {
+                background: #2b3224;
+                border-color: rgba(184, 215, 153, 0.55);
+                box-shadow: inset 0 0 0 1px rgba(184, 215, 153, 0.18);
+            }
+
+            .tile-head {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .state-pill,
+            .info-pill {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
                 padding: 8px 12px;
                 border-radius: 999px;
-                border: 1px solid var(--line);
+                border: 1px solid rgba(255, 255, 255, 0.08);
                 background: rgba(255, 255, 255, 0.04);
-                color: var(--text);
-                font-size: 0.84rem;
+                font-size: 0.82rem;
             }
 
-            .dot {
+            .state-dot {
                 width: 8px;
                 height: 8px;
                 border-radius: 50%;
                 background: var(--accent);
-                box-shadow: 0 0 12px var(--accent);
+                box-shadow: 0 0 12px rgba(184, 215, 153, 0.7);
             }
 
-            .layout {
-                display: grid;
-                grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr);
-                gap: 18px;
-            }
-
-            .panel {
-                border: 1px solid var(--line);
-                border-radius: 24px;
-                background: var(--panel);
-                padding: 18px;
-            }
-
-            .panel-title {
-                margin-bottom: 14px;
-            }
-
-            .camera-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-                gap: 14px;
-            }
-
-            .camera-card {
-                padding: 14px;
-                border-radius: 22px;
-                border: 1px solid rgba(148, 163, 184, 0.14);
-                background: var(--panel-soft);
-                cursor: pointer;
-                transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
-            }
-
-            .camera-card:hover {
-                transform: translateY(-2px);
-                border-color: rgba(120, 239, 202, 0.3);
-            }
-
-            .camera-card.active {
-                border-color: rgba(120, 239, 202, 0.56);
-                background: rgba(24, 67, 64, 0.3);
-                box-shadow: inset 0 0 0 1px rgba(120, 239, 202, 0.22);
-            }
-
-            .card-preview {
+            .tile-preview,
+            .hero-feed {
                 position: relative;
-                margin: 12px 0;
                 overflow: hidden;
-                border-radius: 18px;
-                aspect-ratio: 16 / 10;
-                background: #040914;
+                background: #0f0f0f;
                 border: 1px solid rgba(255, 255, 255, 0.06);
             }
 
-            .card-preview img,
-            .detail-preview img {
+            .tile-preview {
+                border-radius: 18px;
+                aspect-ratio: 1 / 1;
+                margin-bottom: 10px;
+            }
+
+            .hero-feed {
+                border-radius: 30px;
+                aspect-ratio: 16 / 11;
+                min-height: 520px;
+            }
+
+            .tile-preview img,
+            .hero-feed img {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
                 display: block;
             }
 
-            .card-overlay,
-            .detail-overlay {
+            .tile-overlay,
+            .hero-overlay {
                 position: absolute;
                 inset: 0;
                 display: flex;
                 justify-content: space-between;
                 align-items: flex-start;
                 padding: 12px;
-                background: linear-gradient(180deg, rgba(3, 8, 16, 0.56) 0%, rgba(3, 8, 16, 0.08) 45%, rgba(3, 8, 16, 0.72) 100%);
+                background: linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.04) 46%, rgba(0, 0, 0, 0.58) 100%);
                 pointer-events: none;
             }
 
-            .chip.alert,
-            .pill.alert {
-                color: #ffd9d1;
-                border-color: rgba(255, 128, 98, 0.26);
-                background: rgba(78, 25, 16, 0.7);
+            .chip {
+                display: inline-flex;
+                align-items: center;
+                padding: 8px 11px;
+                border-radius: 999px;
+                background: rgba(12, 12, 12, 0.64);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                font-size: 0.8rem;
             }
 
-            .rename-row {
-                margin-top: 12px;
-                align-items: stretch;
+            .chip.alert {
+                color: #ffe1da;
+                background: rgba(69, 26, 20, 0.8);
+                border-color: rgba(255, 109, 87, 0.35);
             }
 
-            .rename-row input {
-                flex: 1;
+            .rename-box {
+                display: flex;
+                gap: 8px;
+                margin-top: 10px;
+            }
+
+            input[type="text"] {
+                width: 100%;
                 min-width: 0;
-                padding: 12px 14px;
+                padding: 11px 12px;
                 border-radius: 14px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                background: rgba(4, 11, 22, 0.8);
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: #171717;
                 color: var(--text);
-                font-size: 0.95rem;
+                font-size: 0.92rem;
             }
 
-            .rename-row button,
-            .detail-toolbar button {
+            button {
                 border: 0;
                 border-radius: 14px;
-                padding: 12px 16px;
+                padding: 11px 14px;
                 font-size: 0.92rem;
                 font-weight: 700;
                 cursor: pointer;
             }
 
-            .save-button,
-            .action-button {
-                color: #06110e;
-                background: linear-gradient(135deg, var(--accent), #ccffe4);
+            .accent-button {
+                color: #233017;
+                background: linear-gradient(135deg, var(--accent), var(--accent-strong));
             }
 
             .ghost-button {
                 color: var(--text);
-                background: rgba(255, 255, 255, 0.08);
+                background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
 
-            .detail-preview {
-                position: relative;
-                overflow: hidden;
-                border-radius: 24px;
-                aspect-ratio: 16 / 10;
-                background: #040914;
-                border: 1px solid rgba(255, 255, 255, 0.06);
+            .utility-button {
+                width: 56px;
+                height: 56px;
+                border-radius: 18px;
+                font-size: 1.3rem;
+                align-self: center;
             }
 
-            .detail-toolbar {
+            .main-head {
+                display: flex;
+                justify-content: space-between;
+                gap: 16px;
+                align-items: flex-start;
+            }
+
+            .main-toolbar {
+                display: flex;
                 flex-wrap: wrap;
+                gap: 10px;
                 align-items: center;
-                margin: 12px 0 16px;
             }
 
             .switch {
@@ -269,8 +293,8 @@
                 gap: 10px;
                 padding: 10px 14px;
                 border-radius: 999px;
+                background: rgba(255, 255, 255, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                background: rgba(255, 255, 255, 0.04);
             }
 
             .switch input {
@@ -279,99 +303,115 @@
                 accent-color: var(--accent);
             }
 
-            .detail-stats {
-                flex-wrap: wrap;
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 12px;
             }
 
-            .stat-card {
-                flex: 1;
-                min-width: 150px;
-                flex-direction: column;
+            .stat {
                 padding: 16px;
-                border-radius: 18px;
-                border: 1px solid rgba(148, 163, 184, 0.14);
+                border-radius: 20px;
                 background: var(--panel-soft);
+                border: 1px solid rgba(255, 255, 255, 0.06);
             }
 
-            .stat-card strong {
+            .stat strong {
+                display: block;
+                margin-top: 8px;
                 font-size: 1.05rem;
             }
 
-            .empty-state {
+            .empty {
                 display: grid;
                 place-items: center;
-                min-height: 220px;
-                text-align: center;
-                border-radius: 22px;
-                border: 1px dashed rgba(148, 163, 184, 0.18);
+                flex: 1;
+                border-radius: 28px;
+                border: 1px dashed rgba(255, 255, 255, 0.1);
                 color: var(--muted);
             }
 
-            @media (max-width: 980px) {
+            @media (max-width: 1100px) {
                 .layout {
                     grid-template-columns: 1fr;
+                }
+
+                .hero-feed {
+                    min-height: 420px;
                 }
             }
 
             @media (max-width: 720px) {
-                .app-shell {
+                .app {
                     width: calc(100% - 12px);
                     margin: 6px auto;
-                    padding: 12px;
-                    border-radius: 20px;
+                    padding: 8px;
+                    border-radius: 24px;
                 }
 
-                .topbar,
-                .topbar-left,
-                .detail-head,
-                .rename-row {
+                .sidebar,
+                .main {
+                    border-radius: 22px;
+                    padding: 14px;
+                }
+
+                .main-head {
                     flex-direction: column;
-                    align-items: flex-start;
+                }
+
+                .stats {
+                    grid-template-columns: 1fr;
                 }
             }
         </style>
     </head>
     <body>
-        <div class="app-shell">
-            <header class="topbar">
-                <div class="topbar-left">
-                    <div class="brand-mark">SC</div>
-                    <div>
-                        <h1>Sentinel Cam Control</h1>
-                        <p class="muted">Kamerauebersicht mit Live-Previews und Detailansicht</p>
+        <div class="app">
+            <div class="layout">
+                <aside class="sidebar">
+                    <div class="brand">
+                        <div class="brand-mark">SC</div>
+                        <div>
+                            <h1>Sentinel</h1>
+                            <p class="muted">Camera board</p>
+                        </div>
                     </div>
-                </div>
-                <div class="status-line">
-                    <span class="pill"><span class="dot"></span><span id="systemStatus">System online</span></span>
-                </div>
-            </header>
 
-            <section class="layout">
-                <section class="panel">
-                    <div class="panel-title">
-                        <h2>Verfuegbare Kameras</h2>
-                        <p class="muted">Die Bewegungserkennung laeuft immer im Hintergrund. Kleine Kacheln bleiben sauber, die roten Boxen kommen nur in der Grossansicht.</p>
+                    <div class="camera-stack" id="cameraGrid"></div>
+
+                    <div class="nav-dots">
+                        <span class="active"></span>
+                        <span></span>
+                        <span></span>
                     </div>
-                    <div class="camera-grid" id="cameraGrid"></div>
-                </section>
 
-                <aside class="panel">
-                    <div class="detail-head">
+                    <button class="ghost-button utility-button" id="refreshAll" title="Neu laden">!</button>
+                </aside>
+
+                <main class="main">
+                    <div class="main-head">
                         <div>
                             <h2 id="detailTitle">Kamera auswaehlen</h2>
-                            <p class="muted" id="detailLocation">Eine Vorschau anklicken, um sie gross zu oeffnen.</p>
+                            <p class="muted" id="detailSubtitle">Klicke links auf eine kleine Kameravorschau.</p>
                         </div>
-                        <span class="pill" id="detailState">Keine Auswahl</span>
+
+                        <div class="main-toolbar">
+                            <span class="info-pill"><span class="state-dot"></span><span id="systemStatus">System online</span></span>
+                            <label class="switch">
+                                <input type="checkbox" id="globalOverlayToggle" checked />
+                                <span>Overlay in Grossansicht</span>
+                            </label>
+                        </div>
                     </div>
 
-                    <div id="detailContent" class="empty-state">
+                    <section id="detailPanel" class="empty">
                         <div>
-                            <h3>Keine Kamera geoeffnet</h3>
-                            <p>Waehle links eine Vorschau aus.</p>
+                            <h3>Keine Kamera aktiv</h3>
+                            <p>Die kleinen Vorschaufenster links bleiben live.</p>
                         </div>
-                    </div>
-                </aside>
-            </section>
+                    </section>
+                </main>
+            </div>
         </div>
 
         <script>
@@ -388,31 +428,30 @@
             };
 
             const cameraGrid = document.getElementById("cameraGrid");
-            const detailContent = document.getElementById("detailContent");
+            const detailPanel = document.getElementById("detailPanel");
             const detailTitle = document.getElementById("detailTitle");
-            const detailLocation = document.getElementById("detailLocation");
-            const detailState = document.getElementById("detailState");
+            const detailSubtitle = document.getElementById("detailSubtitle");
             const systemStatus = document.getElementById("systemStatus");
+            const globalOverlayToggle = document.getElementById("globalOverlayToggle");
+            const refreshAll = document.getElementById("refreshAll");
 
-            function cameraFeedUrl(cameraId, overlay, bustCache = false) {
+            function feedUrl(cameraId, overlay, bustCache = false) {
                 const suffix = bustCache ? `&ts=${Date.now()}` : "";
                 return `/camera_feed/${cameraId}?overlay=${overlay ? "1" : "0"}${suffix}`;
             }
 
-            function getStatusForCamera(cameraId) {
-                return (
-                    state.status.cameras.find((camera) => camera.id === cameraId) || {
-                        motion: "Unbekannt",
-                        label: "Keine Daten",
-                        state: "offline",
-                    }
-                );
+            function getCameraStatus(cameraId) {
+                return state.status.cameras.find((camera) => camera.id === cameraId) || {
+                    motion: "Keine Daten",
+                    label: "Keine Daten",
+                    state: "offline",
+                };
             }
 
-            function setSelectedCamera(cameraId) {
+            function selectCamera(cameraId) {
                 state.selectedCameraId = cameraId;
-                renderCameraGrid();
-                renderDetailPanel();
+                renderTiles();
+                renderDetail();
             }
 
             async function saveCameraName(cameraId) {
@@ -437,172 +476,144 @@
                 state.cameras = state.cameras.map((camera) =>
                     camera.id === cameraId ? data.camera : camera
                 );
-
-                if (state.selectedCameraId === cameraId) {
-                    detailTitle.textContent = data.camera.name;
-                }
-
+                renderTiles();
+                renderDetail();
                 systemStatus.textContent = `${data.camera.name} gespeichert`;
-                renderCameraGrid();
-                renderDetailPanel();
             }
 
-            function renderCameraGrid() {
+            function renderTiles() {
                 cameraGrid.innerHTML = "";
 
                 state.cameras.forEach((camera) => {
-                    const status = getStatusForCamera(camera.id);
-                    const card = document.createElement("article");
-                    card.className = "camera-card";
+                    const status = getCameraStatus(camera.id);
+                    const tile = document.createElement("article");
+                    tile.className = "camera-tile";
 
                     if (camera.id === state.selectedCameraId) {
-                        card.classList.add("active");
+                        tile.classList.add("active");
                     }
 
-                    card.innerHTML = `
-                        <div class="camera-head">
+                    tile.innerHTML = `
+                        <div class="tile-head">
                             <div>
                                 <h3>${camera.name}</h3>
                                 <p class="muted">${camera.location}</p>
                             </div>
-                            <span class="pill">${camera.state}</span>
+                            <span class="state-pill">${camera.state}</span>
                         </div>
-                        <div class="card-preview" data-camera-open="${camera.id}">
-                            <img src="${cameraFeedUrl(camera.id, false)}" alt="${camera.name}" />
-                            <div class="card-overlay">
+
+                        <div class="tile-preview" data-open-camera="${camera.id}">
+                            <img src="${feedUrl(camera.id, false)}" alt="${camera.name}" />
+                            <div class="tile-overlay">
                                 <span id="motion-badge-${camera.id}" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
                                 <span id="label-badge-${camera.id}" class="chip">${status.label}</span>
                             </div>
                         </div>
+
                         <p class="muted">${camera.description}</p>
-                        <p class="muted">${camera.resolution}</p>
-                        <div class="rename-row">
+
+                        <div class="rename-box">
                             <input id="rename-${camera.id}" type="text" value="${camera.name}" maxlength="40" />
-                            <button class="save-button" data-camera-save="${camera.id}">Speichern</button>
+                            <button class="accent-button" data-save-camera="${camera.id}">OK</button>
                         </div>
                     `;
 
-                    cameraGrid.appendChild(card);
+                    cameraGrid.appendChild(tile);
                 });
 
-                document.querySelectorAll("[data-camera-open]").forEach((element) => {
+                document.querySelectorAll("[data-open-camera]").forEach((element) => {
                     element.addEventListener("click", () => {
-                        setSelectedCamera(element.dataset.cameraOpen);
+                        selectCamera(element.dataset.openCamera);
                     });
                 });
 
-                document.querySelectorAll("[data-camera-save]").forEach((button) => {
-                    button.addEventListener("click", () => {
-                        saveCameraName(button.dataset.cameraSave);
+                document.querySelectorAll("[data-save-camera]").forEach((element) => {
+                    element.addEventListener("click", () => {
+                        saveCameraName(element.dataset.saveCamera);
                     });
                 });
             }
 
-            function renderDetailPanel() {
-                const camera = state.cameras.find(
-                    (entry) => entry.id === state.selectedCameraId
-                );
+            function renderDetail() {
+                const camera = state.cameras.find((entry) => entry.id === state.selectedCameraId);
 
                 if (!camera) {
                     detailTitle.textContent = "Kamera auswaehlen";
-                    detailLocation.textContent = "Eine Vorschau anklicken, um sie gross zu oeffnen.";
-                    detailState.textContent = "Keine Auswahl";
-                    detailContent.className = "empty-state";
-                    detailContent.innerHTML = `
+                    detailSubtitle.textContent = "Klicke links auf eine kleine Kameravorschau.";
+                    detailPanel.className = "empty";
+                    detailPanel.innerHTML = `
                         <div>
-                            <h3>Keine Kamera geoeffnet</h3>
-                            <p>Waehle links eine Vorschau aus.</p>
+                            <h3>Keine Kamera aktiv</h3>
+                            <p>Die kleinen Vorschaufenster links bleiben live.</p>
                         </div>
                     `;
                     return;
                 }
 
-                const status = getStatusForCamera(camera.id);
+                const status = getCameraStatus(camera.id);
                 detailTitle.textContent = camera.name;
-                detailLocation.textContent = `${camera.location} · ${camera.description}`;
-                detailState.textContent = camera.state;
-                detailContent.className = "";
-                detailContent.innerHTML = `
-                    <div class="detail-preview">
-                        <img id="detailFeed" src="${cameraFeedUrl(camera.id, state.overlayEnabled)}" alt="${camera.name}" />
-                        <div class="detail-overlay">
+                detailSubtitle.textContent = `${camera.location} · ${camera.description}`;
+                detailPanel.className = "";
+                detailPanel.innerHTML = `
+                    <div class="hero-feed">
+                        <img id="detailFeed" src="${feedUrl(camera.id, state.overlayEnabled)}" alt="${camera.name}" />
+                        <div class="hero-overlay">
                             <span id="detailMotionBadge" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
-                            <span class="chip">${state.overlayEnabled ? "Overlay aktiv" : "Overlay aus"}</span>
+                            <span class="chip">${state.overlayEnabled ? "Overlay an" : "Overlay aus"}</span>
                         </div>
                     </div>
-                    <div class="detail-toolbar">
-                        <label class="switch">
-                            <input type="checkbox" id="overlayToggle" ${state.overlayEnabled ? "checked" : ""} />
-                            <span>Rote Boxen und Labels anzeigen</span>
-                        </label>
-                        <button class="ghost-button" id="refreshDetail">Feed neu laden</button>
-                    </div>
-                    <div class="detail-stats">
-                        <div class="stat-card">
-                            <span class="muted">Bewegung</span>
-                            <strong id="detailMotionValue">${status.motion}</strong>
-                        </div>
-                        <div class="stat-card">
-                            <span class="muted">Erkanntes Objekt</span>
+
+                    <div class="stats">
+                        <div class="stat">
+                            <p class="muted">Erkanntes Objekt</p>
                             <strong id="detailLabelValue">${status.label}</strong>
                         </div>
-                        <div class="stat-card">
-                            <span class="muted">Analyseintervall</span>
+                        <div class="stat">
+                            <p class="muted">Bewegungsstatus</p>
+                            <strong id="detailMotionValue">${status.motion}</strong>
+                        </div>
+                        <div class="stat">
+                            <p class="muted">Analyseintervall</p>
                             <strong>${state.status.classification_interval} Sekunden</strong>
                         </div>
                     </div>
                 `;
-
-                document.getElementById("overlayToggle").addEventListener("change", (event) => {
-                    state.overlayEnabled = event.target.checked;
-                    renderDetailPanel();
-                });
-
-                document.getElementById("refreshDetail").addEventListener("click", () => {
-                    const detailFeed = document.getElementById("detailFeed");
-                    detailFeed.src = cameraFeedUrl(camera.id, state.overlayEnabled, true);
-                });
             }
 
             function syncStatusUi() {
                 state.cameras.forEach((camera) => {
-                    const status = getStatusForCamera(camera.id);
-                    const motionBadge = document.getElementById(`motion-badge-${camera.id}`);
-                    const labelBadge = document.getElementById(`label-badge-${camera.id}`);
+                    const status = getCameraStatus(camera.id);
+                    const motion = document.getElementById(`motion-badge-${camera.id}`);
+                    const label = document.getElementById(`label-badge-${camera.id}`);
 
-                    if (motionBadge) {
-                        motionBadge.textContent = status.motion;
-                        motionBadge.classList.toggle(
-                            "alert",
-                            status.motion === "Bewegung erkannt"
-                        );
+                    if (motion) {
+                        motion.textContent = status.motion;
+                        motion.classList.toggle("alert", status.motion === "Bewegung erkannt");
                     }
 
-                    if (labelBadge) {
-                        labelBadge.textContent = status.label;
+                    if (label) {
+                        label.textContent = status.label;
                     }
                 });
 
+                const detailMotionBadge = document.getElementById("detailMotionBadge");
+                const detailMotionValue = document.getElementById("detailMotionValue");
+                const detailLabelValue = document.getElementById("detailLabelValue");
+
                 if (state.selectedCameraId) {
-                    const selectedStatus = getStatusForCamera(state.selectedCameraId);
-                    const detailMotionBadge = document.getElementById("detailMotionBadge");
-                    const detailMotionValue = document.getElementById("detailMotionValue");
-                    const detailLabelValue = document.getElementById("detailLabelValue");
+                    const status = getCameraStatus(state.selectedCameraId);
 
                     if (detailMotionBadge) {
-                        detailMotionBadge.textContent = selectedStatus.motion;
-                        detailMotionBadge.classList.toggle(
-                            "alert",
-                            selectedStatus.motion === "Bewegung erkannt"
-                        );
+                        detailMotionBadge.textContent = status.motion;
+                        detailMotionBadge.classList.toggle("alert", status.motion === "Bewegung erkannt");
                     }
 
                     if (detailMotionValue) {
-                        detailMotionValue.textContent = selectedStatus.motion;
+                        detailMotionValue.textContent = status.motion;
                     }
 
                     if (detailLabelValue) {
-                        detailLabelValue.textContent = selectedStatus.label;
+                        detailLabelValue.textContent = status.label;
                     }
                 }
             }
@@ -612,6 +623,9 @@
                 const data = await response.json();
                 state.cameras = data.cameras || [];
 
+                if (!state.selectedCameraId && state.cameras.length > 0) {
+                    state.selectedCameraId = state.cameras[0].id;
+                }
             }
 
             async function updateStatus() {
@@ -625,10 +639,27 @@
                 }
             }
 
+            globalOverlayToggle.addEventListener("change", (event) => {
+                state.overlayEnabled = event.target.checked;
+                renderDetail();
+            });
+
+            refreshAll.addEventListener("click", () => {
+                document.querySelectorAll(".tile-preview img").forEach((img) => {
+                    const cameraId = img.closest("[data-open-camera]").dataset.openCamera;
+                    img.src = feedUrl(cameraId, false, true);
+                });
+
+                const detailFeed = document.getElementById("detailFeed");
+                if (detailFeed && state.selectedCameraId) {
+                    detailFeed.src = feedUrl(state.selectedCameraId, state.overlayEnabled, true);
+                }
+            });
+
             async function init() {
                 await loadCameras();
-                renderCameraGrid();
-                renderDetailPanel();
+                renderTiles();
+                renderDetail();
                 await updateStatus();
                 setInterval(updateStatus, 3000);
             }
