@@ -6,17 +6,17 @@
         <title>Sentinel Cam Control</title>
         <style>
             :root {
-                --bg: #151515;
-                --bg-soft: #1d1d1d;
-                --panel: #202020;
-                --panel-soft: #272727;
+                --bg: #0f1110;
+                --bg-soft: #151816;
+                --panel: rgba(28, 31, 28, 0.94);
+                --panel-soft: rgba(40, 44, 40, 0.86);
                 --line: rgba(255, 255, 255, 0.08);
-                --text: #f3f3f3;
-                --muted: #9b9b9b;
-                --accent: #b8d799;
-                --accent-strong: #d4efb5;
-                --danger: #ff6d57;
-                --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+                --text: #f3f5f1;
+                --muted: #9ca498;
+                --accent: #c7ee88;
+                --accent-strong: #dff8b6;
+                --danger: #ff7f66;
+                --shadow: 0 30px 90px rgba(0, 0, 0, 0.4);
             }
 
             * {
@@ -29,31 +29,32 @@
                 font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
                 background:
-                    radial-gradient(circle at top left, rgba(184, 215, 153, 0.08), transparent 20%),
-                    linear-gradient(180deg, #1a1a1a 0%, #111111 100%);
+                    radial-gradient(circle at top left, rgba(199, 238, 136, 0.1), transparent 24%),
+                    radial-gradient(circle at bottom right, rgba(199, 238, 136, 0.06), transparent 20%),
+                    linear-gradient(180deg, #111412 0%, #0a0c0b 100%);
             }
 
-            .app {
-                width: min(1320px, calc(100% - 24px));
+            .shell {
+                width: min(1380px, calc(100% - 24px));
                 margin: 12px auto;
                 padding: 14px;
+                border-radius: 32px;
                 border: 1px solid var(--line);
-                border-radius: 34px;
-                background: rgba(25, 25, 25, 0.96);
+                background: rgba(18, 20, 18, 0.92);
                 box-shadow: var(--shadow);
             }
 
             .layout {
                 display: grid;
-                grid-template-columns: 290px minmax(0, 1fr);
+                grid-template-columns: 320px minmax(0, 1fr);
                 gap: 14px;
-                min-height: calc(100vh - 48px);
+                min-height: calc(100vh - 52px);
             }
 
             .sidebar,
             .main {
-                border: 1px solid var(--line);
                 border-radius: 28px;
+                border: 1px solid var(--line);
                 background: var(--panel);
             }
 
@@ -66,26 +67,41 @@
 
             .main {
                 padding: 18px;
-                display: flex;
-                flex-direction: column;
+                display: grid;
+                grid-template-rows: auto minmax(0, 1fr) auto;
                 gap: 16px;
             }
 
-            .brand {
+            .brand,
+            .main-head,
+            .hero-toolbar,
+            .tile-head,
+            .rename-row {
                 display: flex;
-                align-items: center;
                 gap: 12px;
             }
 
+            .brand,
+            .tile-head,
+            .rename-row {
+                align-items: center;
+            }
+
+            .main-head {
+                justify-content: space-between;
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+
             .brand-mark {
-                width: 44px;
-                height: 44px;
-                border-radius: 15px;
+                width: 48px;
+                height: 48px;
+                border-radius: 16px;
                 display: grid;
                 place-items: center;
-                background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-                color: #223014;
                 font-weight: 800;
+                color: #223116;
+                background: linear-gradient(135deg, var(--accent), var(--accent-strong));
             }
 
             h1,
@@ -99,100 +115,67 @@
                 color: var(--muted);
             }
 
-            .nav-dots {
-                display: grid;
-                gap: 14px;
-                justify-items: center;
-                padding: 8px 0;
-            }
-
-            .nav-dots span {
-                width: 6px;
-                height: 6px;
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.35);
-            }
-
-            .nav-dots span.active {
-                height: 24px;
-                background: var(--accent);
-            }
-
-            .camera-stack {
-                display: grid;
-                gap: 14px;
-                align-content: start;
-            }
-
-            .camera-tile {
-                padding: 12px;
-                border-radius: 22px;
-                background: var(--panel-soft);
-                border: 1px solid rgba(255, 255, 255, 0.06);
-                cursor: pointer;
-                transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
-            }
-
-            .camera-tile:hover {
-                transform: translateY(-1px);
-                border-color: rgba(184, 215, 153, 0.35);
-            }
-
-            .camera-tile.active {
-                background: #2b3224;
-                border-color: rgba(184, 215, 153, 0.55);
-                box-shadow: inset 0 0 0 1px rgba(184, 215, 153, 0.18);
-            }
-
-            .tile-head {
-                display: flex;
-                justify-content: space-between;
-                gap: 12px;
-                align-items: center;
-                margin-bottom: 10px;
-            }
-
-            .state-pill,
-            .info-pill {
+            .badge,
+            .chip {
                 display: inline-flex;
                 align-items: center;
                 gap: 8px;
-                padding: 8px 12px;
+                padding: 9px 12px;
                 border-radius: 999px;
                 border: 1px solid rgba(255, 255, 255, 0.08);
                 background: rgba(255, 255, 255, 0.04);
                 font-size: 0.82rem;
             }
 
-            .state-dot {
+            .dot {
                 width: 8px;
                 height: 8px;
                 border-radius: 50%;
                 background: var(--accent);
-                box-shadow: 0 0 12px rgba(184, 215, 153, 0.7);
+                box-shadow: 0 0 12px rgba(199, 238, 136, 0.72);
             }
 
-            .tile-preview,
-            .hero-feed {
-                position: relative;
-                overflow: hidden;
-                background: #0f0f0f;
+            .camera-list {
+                display: grid;
+                gap: 14px;
+                align-content: start;
+                overflow: auto;
+                padding-right: 2px;
+            }
+
+            .camera-tile {
+                padding: 12px;
+                border-radius: 22px;
                 border: 1px solid rgba(255, 255, 255, 0.06);
+                background: var(--panel-soft);
+                transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
             }
 
-            .tile-preview {
+            .camera-tile:hover {
+                transform: translateY(-1px);
+                border-color: rgba(199, 238, 136, 0.28);
+            }
+
+            .camera-tile.active {
+                background: linear-gradient(180deg, rgba(52, 61, 46, 0.9), rgba(38, 43, 36, 0.96));
+                border-color: rgba(199, 238, 136, 0.42);
+                box-shadow: inset 0 0 0 1px rgba(199, 238, 136, 0.12);
+            }
+
+            .preview-button {
+                width: 100%;
+                padding: 0;
+                border: 0;
                 border-radius: 18px;
-                aspect-ratio: 1 / 1;
-                margin-bottom: 10px;
+                overflow: hidden;
+                cursor: pointer;
+                background: #0b0c0b;
+                position: relative;
+                aspect-ratio: 4 / 3;
+                margin: 10px 0;
             }
 
-            .hero-feed {
-                border-radius: 30px;
-                aspect-ratio: 16 / 11;
-                min-height: 520px;
-            }
-
-            .tile-preview img,
+            .preview-button img,
             .hero-feed img {
                 width: 100%;
                 height: 100%;
@@ -200,7 +183,7 @@
                 display: block;
             }
 
-            .tile-overlay,
+            .preview-overlay,
             .hero-overlay {
                 position: absolute;
                 inset: 0;
@@ -208,39 +191,27 @@
                 justify-content: space-between;
                 align-items: flex-start;
                 padding: 12px;
-                background: linear-gradient(180deg, rgba(0, 0, 0, 0.38) 0%, rgba(0, 0, 0, 0.04) 46%, rgba(0, 0, 0, 0.58) 100%);
+                background: linear-gradient(180deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.02) 48%, rgba(0, 0, 0, 0.58) 100%);
                 pointer-events: none;
             }
 
             .chip {
-                display: inline-flex;
-                align-items: center;
-                padding: 8px 11px;
-                border-radius: 999px;
-                background: rgba(12, 12, 12, 0.64);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                font-size: 0.8rem;
+                background: rgba(10, 10, 10, 0.7);
             }
 
             .chip.alert {
-                color: #ffe1da;
-                background: rgba(69, 26, 20, 0.8);
-                border-color: rgba(255, 109, 87, 0.35);
+                color: #ffe0d8;
+                background: rgba(84, 29, 20, 0.84);
+                border-color: rgba(255, 127, 102, 0.28);
             }
 
-            .rename-box {
-                display: flex;
-                gap: 8px;
-                margin-top: 10px;
-            }
-
-            input[type="text"] {
-                width: 100%;
+            .rename-row input {
+                flex: 1;
                 min-width: 0;
                 padding: 11px 12px;
                 border-radius: 14px;
                 border: 1px solid rgba(255, 255, 255, 0.08);
-                background: #171717;
+                background: rgba(12, 13, 12, 0.78);
                 color: var(--text);
                 font-size: 0.92rem;
             }
@@ -254,37 +225,30 @@
                 cursor: pointer;
             }
 
-            .accent-button {
-                color: #233017;
+            .primary {
+                color: #223116;
                 background: linear-gradient(135deg, var(--accent), var(--accent-strong));
             }
 
-            .ghost-button {
+            .secondary {
                 color: var(--text);
                 background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.08);
             }
 
-            .utility-button {
-                width: 56px;
-                height: 56px;
-                border-radius: 18px;
-                font-size: 1.3rem;
-                align-self: center;
+            .hero-feed {
+                position: relative;
+                overflow: hidden;
+                border-radius: 30px;
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                background: #090909;
+                min-height: 0;
             }
 
-            .main-head {
-                display: flex;
-                justify-content: space-between;
-                gap: 16px;
-                align-items: flex-start;
-            }
-
-            .main-toolbar {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 10px;
+            .hero-toolbar {
                 align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
             }
 
             .switch {
@@ -293,8 +257,8 @@
                 gap: 10px;
                 padding: 10px 14px;
                 border-radius: 999px;
-                background: rgba(255, 255, 255, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.08);
+                background: rgba(255, 255, 255, 0.04);
             }
 
             .switch input {
@@ -305,58 +269,54 @@
 
             .stats {
                 display: grid;
-                grid-template-columns: repeat(3, minmax(0, 1fr));
+                grid-template-columns: repeat(4, minmax(0, 1fr));
                 gap: 12px;
             }
 
             .stat {
                 padding: 16px;
                 border-radius: 20px;
-                background: var(--panel-soft);
                 border: 1px solid rgba(255, 255, 255, 0.06);
+                background: var(--panel-soft);
             }
 
             .stat strong {
                 display: block;
                 margin-top: 8px;
-                font-size: 1.05rem;
+                font-size: 1.02rem;
             }
 
             .empty {
                 display: grid;
                 place-items: center;
-                flex: 1;
                 border-radius: 28px;
                 border: 1px dashed rgba(255, 255, 255, 0.1);
                 color: var(--muted);
+                min-height: 420px;
             }
 
-            @media (max-width: 1100px) {
+            @media (max-width: 1120px) {
                 .layout {
                     grid-template-columns: 1fr;
                 }
 
-                .hero-feed {
-                    min-height: 420px;
+                .stats {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
                 }
             }
 
             @media (max-width: 720px) {
-                .app {
-                    width: calc(100% - 12px);
-                    margin: 6px auto;
+                .shell {
+                    width: calc(100% - 10px);
+                    margin: 5px auto;
                     padding: 8px;
                     border-radius: 24px;
                 }
 
                 .sidebar,
                 .main {
-                    border-radius: 22px;
                     padding: 14px;
-                }
-
-                .main-head {
-                    flex-direction: column;
+                    border-radius: 22px;
                 }
 
                 .stats {
@@ -366,49 +326,62 @@
         </style>
     </head>
     <body>
-        <div class="app">
+        <div class="shell">
             <div class="layout">
                 <aside class="sidebar">
                     <div class="brand">
                         <div class="brand-mark">SC</div>
                         <div>
                             <h1>Sentinel</h1>
-                            <p class="muted">Camera board</p>
+                            <p class="muted">Schnelles Kamera-Dashboard</p>
                         </div>
                     </div>
 
-                    <div class="camera-stack" id="cameraGrid"></div>
+                    <div class="badge"><span class="dot"></span><span id="systemStatus">System online</span></div>
 
-                    <div class="nav-dots">
-                        <span class="active"></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-
-                    <button class="ghost-button utility-button" id="refreshAll" title="Neu laden">!</button>
+                    <section class="camera-list" id="cameraList"></section>
                 </aside>
 
                 <main class="main">
                     <div class="main-head">
                         <div>
                             <h2 id="detailTitle">Kamera auswaehlen</h2>
-                            <p class="muted" id="detailSubtitle">Klicke links auf eine kleine Kameravorschau.</p>
+                            <p class="muted" id="detailSubtitle">Links eine Vorschau antippen, rechts gross ansehen.</p>
                         </div>
 
-                        <div class="main-toolbar">
-                            <span class="info-pill"><span class="state-dot"></span><span id="systemStatus">System online</span></span>
+                        <div class="hero-toolbar">
                             <label class="switch">
-                                <input type="checkbox" id="globalOverlayToggle" checked />
+                                <input type="checkbox" id="overlayToggle" checked />
                                 <span>Overlay in Grossansicht</span>
                             </label>
+                            <button class="secondary" id="refreshButton">Ansicht aktualisieren</button>
                         </div>
                     </div>
 
                     <section id="detailPanel" class="empty">
                         <div>
                             <h3>Keine Kamera aktiv</h3>
-                            <p>Die kleinen Vorschaufenster links bleiben live.</p>
+                            <p>Die kleinen Vorschaufenster laufen bereits im Hintergrund.</p>
                         </div>
+                    </section>
+
+                    <section class="stats">
+                        <article class="stat">
+                            <p class="muted">Bewegungsstatus</p>
+                            <strong id="motionValue">Warte auf Daten</strong>
+                        </article>
+                        <article class="stat">
+                            <p class="muted">Erkanntes Objekt</p>
+                            <strong id="labelValue">Warte auf Daten</strong>
+                        </article>
+                        <article class="stat">
+                            <p class="muted">Analyseintervall</p>
+                            <strong id="intervalValue">5 Sekunden</strong>
+                        </article>
+                        <article class="stat">
+                            <p class="muted">Snapshot-Modus</p>
+                            <strong>Performance optimiert</strong>
+                        </article>
                     </section>
                 </main>
             </div>
@@ -420,27 +393,29 @@
                 selectedCameraId: null,
                 overlayEnabled: true,
                 status: {
-                    motion: "Lade...",
-                    label: "Lade...",
+                    motion: "Warte auf Daten",
+                    label: "Warte auf Daten",
                     classification_interval: 5,
                     cameras: [],
                 },
             };
 
-            const cameraGrid = document.getElementById("cameraGrid");
+            const cameraList = document.getElementById("cameraList");
             const detailPanel = document.getElementById("detailPanel");
             const detailTitle = document.getElementById("detailTitle");
             const detailSubtitle = document.getElementById("detailSubtitle");
+            const overlayToggle = document.getElementById("overlayToggle");
+            const refreshButton = document.getElementById("refreshButton");
             const systemStatus = document.getElementById("systemStatus");
-            const globalOverlayToggle = document.getElementById("globalOverlayToggle");
-            const refreshAll = document.getElementById("refreshAll");
+            const motionValue = document.getElementById("motionValue");
+            const labelValue = document.getElementById("labelValue");
+            const intervalValue = document.getElementById("intervalValue");
 
-            function feedUrl(cameraId, overlay, bustCache = false) {
-                const suffix = bustCache ? `&ts=${Date.now()}` : "";
-                return `/camera_feed/${cameraId}?overlay=${overlay ? "1" : "0"}${suffix}`;
-            }
+            let tileRefreshTimer = null;
+            let detailRefreshTimer = null;
+            let statusRefreshTimer = null;
 
-            function getCameraStatus(cameraId) {
+            function statusFor(cameraId) {
                 return state.status.cameras.find((camera) => camera.id === cameraId) || {
                     motion: "Keine Daten",
                     label: "Keine Daten",
@@ -448,10 +423,169 @@
                 };
             }
 
-            function selectCamera(cameraId) {
-                state.selectedCameraId = cameraId;
-                renderTiles();
-                renderDetail();
+            function snapshotUrl(cameraId, overlay) {
+                return `/camera_snapshot/${cameraId}?overlay=${overlay ? "1" : "0"}&ts=${Date.now()}`;
+            }
+
+            function renderCameraList() {
+                cameraList.innerHTML = "";
+
+                state.cameras.forEach((camera) => {
+                    const cameraStatus = statusFor(camera.id);
+                    const tile = document.createElement("article");
+                    tile.className = "camera-tile";
+                    if (camera.id === state.selectedCameraId) {
+                        tile.classList.add("active");
+                    }
+
+                    tile.innerHTML = `
+                        <div class="tile-head">
+                            <div>
+                                <h3>${camera.name}</h3>
+                                <p class="muted">${camera.location}</p>
+                            </div>
+                            <span class="badge">${camera.state}</span>
+                        </div>
+
+                        <button class="preview-button" data-open-camera="${camera.id}">
+                            <img id="tile-image-${camera.id}" alt="${camera.name}" />
+                            <div class="preview-overlay">
+                                <span id="tile-motion-${camera.id}" class="chip ${cameraStatus.motion === "Bewegung erkannt" ? "alert" : ""}">${cameraStatus.motion}</span>
+                                <span id="tile-label-${camera.id}" class="chip">${cameraStatus.label}</span>
+                            </div>
+                        </button>
+
+                        <p class="muted">${camera.description}</p>
+
+                        <div class="rename-row">
+                            <input id="rename-${camera.id}" type="text" value="${camera.name}" maxlength="40" />
+                            <button class="primary" data-save-camera="${camera.id}">OK</button>
+                        </div>
+                    `;
+
+                    cameraList.appendChild(tile);
+                });
+
+                document.querySelectorAll("[data-open-camera]").forEach((button) => {
+                    button.addEventListener("click", () => {
+                        state.selectedCameraId = button.dataset.openCamera;
+                        renderCameraList();
+                        renderDetailPanel();
+                        refreshDetailSnapshot();
+                    });
+                });
+
+                document.querySelectorAll("[data-save-camera]").forEach((button) => {
+                    button.addEventListener("click", () => {
+                        saveCameraName(button.dataset.saveCamera);
+                    });
+                });
+            }
+
+            function renderDetailPanel() {
+                const camera = state.cameras.find((entry) => entry.id === state.selectedCameraId);
+
+                if (!camera) {
+                    detailTitle.textContent = "Kamera auswaehlen";
+                    detailSubtitle.textContent = "Links eine Vorschau antippen, rechts gross ansehen.";
+                    detailPanel.className = "empty";
+                    detailPanel.innerHTML = `
+                        <div>
+                            <h3>Keine Kamera aktiv</h3>
+                            <p>Die kleinen Vorschaufenster laufen bereits im Hintergrund.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const cameraStatus = statusFor(camera.id);
+                detailTitle.textContent = camera.name;
+                detailSubtitle.textContent = `${camera.location} · ${camera.description}`;
+                detailPanel.className = "";
+                detailPanel.innerHTML = `
+                    <div class="hero-feed">
+                        <img id="detailImage" alt="${camera.name}" />
+                        <div class="hero-overlay">
+                            <span id="detailMotion" class="chip ${cameraStatus.motion === "Bewegung erkannt" ? "alert" : ""}">${cameraStatus.motion}</span>
+                            <span class="chip">${state.overlayEnabled ? "Overlay an" : "Overlay aus"}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            function refreshTileSnapshots() {
+                state.cameras.forEach((camera) => {
+                    const image = document.getElementById(`tile-image-${camera.id}`);
+                    if (image) {
+                        image.src = snapshotUrl(camera.id, false);
+                    }
+                });
+            }
+
+            function refreshDetailSnapshot() {
+                if (!state.selectedCameraId) {
+                    return;
+                }
+
+                const detailImage = document.getElementById("detailImage");
+                if (detailImage) {
+                    detailImage.src = snapshotUrl(state.selectedCameraId, state.overlayEnabled);
+                }
+            }
+
+            function syncStatusUi() {
+                systemStatus.textContent = `${state.status.motion} · ${state.status.label}`;
+                motionValue.textContent = state.status.motion;
+                labelValue.textContent = state.status.label;
+                intervalValue.textContent = `${state.status.classification_interval} Sekunden`;
+
+                state.cameras.forEach((camera) => {
+                    const cameraStatus = statusFor(camera.id);
+                    const motionChip = document.getElementById(`tile-motion-${camera.id}`);
+                    const labelChip = document.getElementById(`tile-label-${camera.id}`);
+
+                    if (motionChip) {
+                        motionChip.textContent = cameraStatus.motion;
+                        motionChip.classList.toggle(
+                            "alert",
+                            cameraStatus.motion === "Bewegung erkannt"
+                        );
+                    }
+
+                    if (labelChip) {
+                        labelChip.textContent = cameraStatus.label;
+                    }
+                });
+
+                const detailMotion = document.getElementById("detailMotion");
+                if (detailMotion && state.selectedCameraId) {
+                    const cameraStatus = statusFor(state.selectedCameraId);
+                    detailMotion.textContent = cameraStatus.motion;
+                    detailMotion.classList.toggle(
+                        "alert",
+                        cameraStatus.motion === "Bewegung erkannt"
+                    );
+                }
+            }
+
+            async function loadCameras() {
+                const response = await fetch("/api/cameras");
+                const data = await response.json();
+                state.cameras = data.cameras || [];
+
+                if (!state.selectedCameraId && state.cameras.length > 0) {
+                    state.selectedCameraId = state.cameras[0].id;
+                }
+            }
+
+            async function updateStatus() {
+                try {
+                    const response = await fetch("/api/status");
+                    state.status = await response.json();
+                    syncStatusUi();
+                } catch (error) {
+                    systemStatus.textContent = "Status nicht erreichbar";
+                }
             }
 
             async function saveCameraName(cameraId) {
@@ -476,192 +610,45 @@
                 state.cameras = state.cameras.map((camera) =>
                     camera.id === cameraId ? data.camera : camera
                 );
-                renderTiles();
-                renderDetail();
-                systemStatus.textContent = `${data.camera.name} gespeichert`;
+                renderCameraList();
+                renderDetailPanel();
+                refreshTileSnapshots();
+                refreshDetailSnapshot();
+                syncStatusUi();
             }
 
-            function renderTiles() {
-                cameraGrid.innerHTML = "";
+            function startRefreshLoops() {
+                clearInterval(tileRefreshTimer);
+                clearInterval(detailRefreshTimer);
+                clearInterval(statusRefreshTimer);
 
-                state.cameras.forEach((camera) => {
-                    const status = getCameraStatus(camera.id);
-                    const tile = document.createElement("article");
-                    tile.className = "camera-tile";
+                refreshTileSnapshots();
+                refreshDetailSnapshot();
+                updateStatus();
 
-                    if (camera.id === state.selectedCameraId) {
-                        tile.classList.add("active");
-                    }
-
-                    tile.innerHTML = `
-                        <div class="tile-head">
-                            <div>
-                                <h3>${camera.name}</h3>
-                                <p class="muted">${camera.location}</p>
-                            </div>
-                            <span class="state-pill">${camera.state}</span>
-                        </div>
-
-                        <div class="tile-preview" data-open-camera="${camera.id}">
-                            <img src="${feedUrl(camera.id, false)}" alt="${camera.name}" />
-                            <div class="tile-overlay">
-                                <span id="motion-badge-${camera.id}" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
-                                <span id="label-badge-${camera.id}" class="chip">${status.label}</span>
-                            </div>
-                        </div>
-
-                        <p class="muted">${camera.description}</p>
-
-                        <div class="rename-box">
-                            <input id="rename-${camera.id}" type="text" value="${camera.name}" maxlength="40" />
-                            <button class="accent-button" data-save-camera="${camera.id}">OK</button>
-                        </div>
-                    `;
-
-                    cameraGrid.appendChild(tile);
-                });
-
-                document.querySelectorAll("[data-open-camera]").forEach((element) => {
-                    element.addEventListener("click", () => {
-                        selectCamera(element.dataset.openCamera);
-                    });
-                });
-
-                document.querySelectorAll("[data-save-camera]").forEach((element) => {
-                    element.addEventListener("click", () => {
-                        saveCameraName(element.dataset.saveCamera);
-                    });
-                });
+                tileRefreshTimer = setInterval(refreshTileSnapshots, 1400);
+                detailRefreshTimer = setInterval(refreshDetailSnapshot, 320);
+                statusRefreshTimer = setInterval(updateStatus, 1800);
             }
 
-            function renderDetail() {
-                const camera = state.cameras.find((entry) => entry.id === state.selectedCameraId);
-
-                if (!camera) {
-                    detailTitle.textContent = "Kamera auswaehlen";
-                    detailSubtitle.textContent = "Klicke links auf eine kleine Kameravorschau.";
-                    detailPanel.className = "empty";
-                    detailPanel.innerHTML = `
-                        <div>
-                            <h3>Keine Kamera aktiv</h3>
-                            <p>Die kleinen Vorschaufenster links bleiben live.</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const status = getCameraStatus(camera.id);
-                detailTitle.textContent = camera.name;
-                detailSubtitle.textContent = `${camera.location} · ${camera.description}`;
-                detailPanel.className = "";
-                detailPanel.innerHTML = `
-                    <div class="hero-feed">
-                        <img id="detailFeed" src="${feedUrl(camera.id, state.overlayEnabled)}" alt="${camera.name}" />
-                        <div class="hero-overlay">
-                            <span id="detailMotionBadge" class="chip ${status.motion === "Bewegung erkannt" ? "alert" : ""}">${status.motion}</span>
-                            <span class="chip">${state.overlayEnabled ? "Overlay an" : "Overlay aus"}</span>
-                        </div>
-                    </div>
-
-                    <div class="stats">
-                        <div class="stat">
-                            <p class="muted">Erkanntes Objekt</p>
-                            <strong id="detailLabelValue">${status.label}</strong>
-                        </div>
-                        <div class="stat">
-                            <p class="muted">Bewegungsstatus</p>
-                            <strong id="detailMotionValue">${status.motion}</strong>
-                        </div>
-                        <div class="stat">
-                            <p class="muted">Analyseintervall</p>
-                            <strong>${state.status.classification_interval} Sekunden</strong>
-                        </div>
-                    </div>
-                `;
-            }
-
-            function syncStatusUi() {
-                state.cameras.forEach((camera) => {
-                    const status = getCameraStatus(camera.id);
-                    const motion = document.getElementById(`motion-badge-${camera.id}`);
-                    const label = document.getElementById(`label-badge-${camera.id}`);
-
-                    if (motion) {
-                        motion.textContent = status.motion;
-                        motion.classList.toggle("alert", status.motion === "Bewegung erkannt");
-                    }
-
-                    if (label) {
-                        label.textContent = status.label;
-                    }
-                });
-
-                const detailMotionBadge = document.getElementById("detailMotionBadge");
-                const detailMotionValue = document.getElementById("detailMotionValue");
-                const detailLabelValue = document.getElementById("detailLabelValue");
-
-                if (state.selectedCameraId) {
-                    const status = getCameraStatus(state.selectedCameraId);
-
-                    if (detailMotionBadge) {
-                        detailMotionBadge.textContent = status.motion;
-                        detailMotionBadge.classList.toggle("alert", status.motion === "Bewegung erkannt");
-                    }
-
-                    if (detailMotionValue) {
-                        detailMotionValue.textContent = status.motion;
-                    }
-
-                    if (detailLabelValue) {
-                        detailLabelValue.textContent = status.label;
-                    }
-                }
-            }
-
-            async function loadCameras() {
-                const response = await fetch("/api/cameras");
-                const data = await response.json();
-                state.cameras = data.cameras || [];
-
-                if (!state.selectedCameraId && state.cameras.length > 0) {
-                    state.selectedCameraId = state.cameras[0].id;
-                }
-            }
-
-            async function updateStatus() {
-                try {
-                    const response = await fetch("/api/status");
-                    state.status = await response.json();
-                    systemStatus.textContent = `${state.status.motion} · ${state.status.label}`;
-                    syncStatusUi();
-                } catch (error) {
-                    systemStatus.textContent = "Status nicht erreichbar";
-                }
-            }
-
-            globalOverlayToggle.addEventListener("change", (event) => {
+            overlayToggle.addEventListener("change", (event) => {
                 state.overlayEnabled = event.target.checked;
-                renderDetail();
+                renderDetailPanel();
+                refreshDetailSnapshot();
+                syncStatusUi();
             });
 
-            refreshAll.addEventListener("click", () => {
-                document.querySelectorAll(".tile-preview img").forEach((img) => {
-                    const cameraId = img.closest("[data-open-camera]").dataset.openCamera;
-                    img.src = feedUrl(cameraId, false, true);
-                });
-
-                const detailFeed = document.getElementById("detailFeed");
-                if (detailFeed && state.selectedCameraId) {
-                    detailFeed.src = feedUrl(state.selectedCameraId, state.overlayEnabled, true);
-                }
+            refreshButton.addEventListener("click", () => {
+                refreshTileSnapshots();
+                refreshDetailSnapshot();
+                updateStatus();
             });
 
             async function init() {
                 await loadCameras();
-                renderTiles();
-                renderDetail();
-                await updateStatus();
-                setInterval(updateStatus, 3000);
+                renderCameraList();
+                renderDetailPanel();
+                startRefreshLoops();
             }
 
             init();

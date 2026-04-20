@@ -34,6 +34,9 @@ class CameraApp:
         self.app.add_url_rule(
             "/camera_feed/<camera_id>", "camera_feed", self.camera_feed
         )
+        self.app.add_url_rule(
+            "/camera_snapshot/<camera_id>", "camera_snapshot", self.camera_snapshot
+        )
 
         self.client = OpenAI()
         self.camera_config_path = PROJECT_ROOT / "Backend" / "cameras.json"
@@ -59,6 +62,7 @@ class CameraApp:
         self.latest_overlay_frame = None
         self.latest_frame_timestamp = 0.0
         self.frame_lock = threading.Lock()
+        self.jpeg_quality = 72
 
         self.capture_thread = threading.Thread(target=self.capture_loop, daemon=True)
         self.capture_thread.start()
@@ -253,7 +257,9 @@ class CameraApp:
         return overlay_frame
 
     def encode_frame(self, frame_bgr):
-        ok, buffer = cv2.imencode(".jpg", frame_bgr)
+        ok, buffer = cv2.imencode(
+            ".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
+        )
         return buffer.tobytes() if ok else None
 
     def capture_loop(self):
@@ -295,6 +301,23 @@ class CameraApp:
         return Response(
             self.generate_stream(overlay=overlay),
             mimetype="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    def camera_snapshot(self, camera_id):
+        if not any(camera["id"] == camera_id for camera in self.cameras):
+            return jsonify({"error": "Kamera nicht gefunden."}), 404
+
+        overlay = request.args.get("overlay", "0") == "1"
+        with self.frame_lock:
+            frame_bytes = self.latest_overlay_frame if overlay else self.latest_raw_frame
+
+        if frame_bytes is None:
+            return Response(status=503)
+
+        return Response(
+            frame_bytes,
+            mimetype="image/jpeg",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0"},
         )
 
     def run(self):
