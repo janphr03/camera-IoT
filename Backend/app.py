@@ -4,7 +4,7 @@ import time
 
 import cv2
 from dotenv import load_dotenv
-from flask import Flask, Response, render_template
+from flask import Flask, Response, jsonify, render_template
 from openai import OpenAI
 from picamera2 import Picamera2
 
@@ -21,7 +21,12 @@ class CameraApp:
         template_dir = PROJECT_ROOT / "Frontend" / "templates"
         self.app = Flask(__name__, template_folder=str(template_dir))
         self.app.add_url_rule("/", "index", self.index)
-        self.app.add_url_rule("/video_feed", "video_feed", self.video_feed)
+        self.app.add_url_rule("/preview_feed", "preview_feed", self.preview_feed)
+        self.app.add_url_rule(
+            "/surveillance_feed", "surveillance_feed", self.surveillance_feed
+        )
+        self.app.add_url_rule("/api/cameras", "camera_options", self.camera_options)
+        self.app.add_url_rule("/api/status", "status", self.status)
 
         self.client = OpenAI()
 
@@ -40,9 +45,35 @@ class CameraApp:
         self.last_classification_time = 0
         self.classification_interval = 5
         self.current_label = "Kein Objekt erkannt"
+        self.last_motion_status = "Bereit"
 
     def index(self):
         return render_template("index.html")
+
+    def camera_options(self):
+        return jsonify(
+            {
+                "cameras": [
+                    {
+                        "id": "pi-main",
+                        "name": "Pi Kamera",
+                        "location": "Haupteingang",
+                        "resolution": "640 x 480",
+                        "state": "online",
+                        "description": "Direkter Raspberry-Pi-Kameramodul-Feed",
+                    }
+                ]
+            }
+        )
+
+    def status(self):
+        return jsonify(
+            {
+                "motion": self.last_motion_status,
+                "label": self.current_label,
+                "classification_interval": self.classification_interval,
+            }
+        )
 
     def classify_object_with_openai(self, roi):
         ok, buffer = cv2.imencode(".jpg", roi)
@@ -146,6 +177,7 @@ class CameraApp:
 
         status_text = "Bewegung erkannt" if motion_detected else "Keine Bewegung"
         status_color = (0, 0, 255) if motion_detected else (0, 255, 0)
+        self.last_motion_status = status_text
 
         cv2.putText(
             frame_bgr,
@@ -160,11 +192,17 @@ class CameraApp:
         self.previous_gray = gray
         return frame_bgr
 
-    def generate_frames(self):
+    def generate_frames(self, detect_motion=False):
         while True:
             frame = self.picam2.capture_array()
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            frame_bgr = self.process_motion(frame_bgr)
+
+            if detect_motion:
+                frame_bgr = self.process_motion(frame_bgr)
+            else:
+                self.previous_gray = None
+                self.last_motion_status = "Preview"
+                self.current_label = "Erkennung inaktiv"
 
             ok, buffer = cv2.imencode(".jpg", frame_bgr)
             if not ok:
@@ -177,9 +215,15 @@ class CameraApp:
                 b"Content-Type: image/jpeg\r\n\r\n" + frame_bytes + b"\r\n"
             )
 
-    def video_feed(self):
+    def preview_feed(self):
         return Response(
-            self.generate_frames(),
+            self.generate_frames(detect_motion=False),
+            mimetype="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    def surveillance_feed(self):
+        return Response(
+            self.generate_frames(detect_motion=True),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 

@@ -1,6 +1,6 @@
 # RaspCamIoT
 
-Dieses Projekt startet einen Flask-Server auf dem Raspberry Pi, zeigt den Live-Kamerastream im Browser an und klassifiziert erkannte Bewegung mit der OpenAI API.
+Dieses Projekt startet einen Flask-Server auf dem Raspberry Pi und stellt eine kleine Ueberwachungskamera-App im Browser bereit. Die Anwendung bietet jetzt ein Home-Menue, eine reine Live-Preview ohne aktive Erkennung, eine explizite Kamera-Auswahl und einen separaten Ueberwachungsmodus mit Bewegungs- und Objekterkennung per OpenAI API.
 
 ## Projektstruktur
 
@@ -67,7 +67,7 @@ python3 cam_view.py
 
 Standardmäßig startet der Server auf Port `5000`.
 
-## Im Browser öffnen
+## Im Browser oeffnen
 
 Im lokalen Netzwerk den Raspberry Pi im Browser öffnen:
 
@@ -80,6 +80,14 @@ Beispiel:
 ```text
 http://192.168.178.50:5000
 ```
+
+## Aktueller Ablauf in der App
+
+1. Startseite mit Home-Dashboard oeffnen.
+2. Verfuegbare Kamera auswaehlen.
+3. Zunaechst nur die Preview ansehen.
+4. Danach bewusst `Ueberwachung starten` aktivieren.
+5. Im aktiven Modus wird Bewegung markiert und ein Objektlabel eingeblendet.
 
 ## Typischer Ablauf für dich oder Kolleg*innen
 
