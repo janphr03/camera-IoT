@@ -40,14 +40,14 @@ class CameraApp:
 
         self.jpeg_quality = 68
         self.min_area = 1400
-        self.padding = 25
+        self.padding = 8
         self.previous_gray = None
         self.classification_interval = 5
         self.last_classification_time = 0
         self.current_label = "Noch kein Objekt"
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
-        self.default_color_mode = os.getenv("CAMERA_COLOR_MODE", "swap_rb")
+        self.default_color_mode = os.getenv("CAMERA_COLOR_MODE", "raw")
 
     def index(self):
         return render_template("index.html")
@@ -152,28 +152,22 @@ class CameraApp:
             thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
 
-        frame_height, frame_width = frame_bgr.shape[:2]
-        min_x = frame_width
-        min_y = frame_height
-        max_x = 0
-        max_y = 0
-        motion_detected = False
-
-        for contour in contours:
-            if cv2.contourArea(contour) < self.min_area:
-                continue
-
-            x, y, width, height = cv2.boundingRect(contour)
-            min_x = min(min_x, x)
-            min_y = min(min_y, y)
-            max_x = max(max_x, x + width)
-            max_y = max(max_y, y + height)
-            motion_detected = True
+        relevant_contours = [
+            contour
+            for contour in contours
+            if cv2.contourArea(contour) >= self.min_area
+        ]
 
         self.previous_gray = gray
 
-        if not motion_detected:
+        if not relevant_contours:
             return frame_bgr
+
+        frame_height, frame_width = frame_bgr.shape[:2]
+        largest_contour = max(relevant_contours, key=cv2.contourArea)
+        min_x, min_y, width, height = cv2.boundingRect(largest_contour)
+        max_x = min_x + width
+        max_y = min_y + height
 
         min_x = max(0, min_x - self.padding)
         min_y = max(0, min_y - self.padding)

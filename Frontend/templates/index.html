@@ -259,7 +259,7 @@
     <body>
         <main class="stage">
             <section class="viewer">
-                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=swap_rb" alt="Kamera Livebild" />
+                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=raw" alt="Kamera Livebild" />
 
                 <div class="topbar">
                     <div class="brand glass">
@@ -297,7 +297,7 @@
             const colorButton = document.getElementById("colorButton");
             const reloadButton = document.getElementById("reloadButton");
             const streamStatus = document.getElementById("streamStatus");
-            const colorModes = ["swap_rb", "raw", "rgb_to_bgr"];
+            const colorModes = ["raw", "rgb_to_bgr", "swap_rb"];
             let colorModeIndex = 0;
 
             function reconnectStream() {
