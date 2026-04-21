@@ -31,7 +31,7 @@ class CameraApp:
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
         config = self.picam2.create_video_configuration(
-            main={"size": (640, 480), "format": "BGR888"},
+            main={"size": (640, 480), "format": "RGB888"},
             controls={"FrameDurationLimits": (33333, 33333)},
         )
         self.picam2.configure(config)
@@ -170,7 +170,8 @@ class CameraApp:
         roi = frame_bgr[min_y:max_y, min_x:max_x]
         self.maybe_start_classification(roi)
 
-        cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), (255, 120, 40), 2)
+        overlay_color = (40, 120, 255)
+        cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), overlay_color, 2)
         with self.label_lock:
             label = self.current_label
 
@@ -181,7 +182,7 @@ class CameraApp:
             (min_x, label_origin_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.68,
-            (255, 120, 40),
+            overlay_color,
             2,
         )
         return frame_bgr
@@ -191,7 +192,7 @@ class CameraApp:
 
         while True:
             frame = self.picam2.capture_array()
-            frame_bgr = frame
+            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
             if overlay:
                 frame_bgr = self.draw_light_motion_overlay(frame_bgr)
