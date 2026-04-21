@@ -47,6 +47,7 @@ class CameraApp:
         self.current_label = "Noch kein Objekt"
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
+        self.default_color_mode = os.getenv("CAMERA_COLOR_MODE", "swap_rb")
 
     def index(self):
         return render_template("index.html")
@@ -56,6 +57,18 @@ class CameraApp:
             ".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
         )
         return buffer.tobytes() if ok else None
+
+    def normalize_frame_for_opencv(self, frame, color_mode):
+        if color_mode == "raw":
+            return frame
+
+        if color_mode == "rgb_to_bgr":
+            return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        if color_mode == "swap_rb":
+            return frame[:, :, [2, 1, 0]]
+
+        return frame[:, :, [2, 1, 0]]
 
     def classify_object_with_openai(self, roi):
         if self.client is None:
@@ -187,12 +200,13 @@ class CameraApp:
         )
         return frame_bgr
 
-    def generate_stream(self, overlay=False):
+    def generate_stream(self, overlay=False, color_mode=None):
         self.previous_gray = None
+        color_mode = color_mode or self.default_color_mode
 
         while True:
             frame = self.picam2.capture_array()
-            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            frame_bgr = self.normalize_frame_for_opencv(frame, color_mode)
 
             if overlay:
                 frame_bgr = self.draw_light_motion_overlay(frame_bgr)
@@ -211,8 +225,9 @@ class CameraApp:
             return jsonify({"error": "Kamera nicht gefunden."}), 404
 
         overlay = request.args.get("overlay", "0") == "1"
+        color_mode = request.args.get("color", self.default_color_mode)
         return Response(
-            self.generate_stream(overlay=overlay),
+            self.generate_stream(overlay=overlay, color_mode=color_mode),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 

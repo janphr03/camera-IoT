@@ -259,7 +259,7 @@
     <body>
         <main class="stage">
             <section class="viewer">
-                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0" alt="Kamera Livebild" />
+                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=swap_rb" alt="Kamera Livebild" />
 
                 <div class="topbar">
                     <div class="brand glass">
@@ -275,6 +275,7 @@
                             <input id="overlayToggle" type="checkbox" />
                             <span>Bewegungsrahmen</span>
                         </label>
+                        <button id="colorButton" type="button">Farbe wechseln</button>
                         <button id="reloadButton" type="button">Neu verbinden</button>
                     </div>
                 </div>
@@ -293,18 +294,29 @@
         <script>
             const cameraFeed = document.getElementById("cameraFeed");
             const overlayToggle = document.getElementById("overlayToggle");
+            const colorButton = document.getElementById("colorButton");
             const reloadButton = document.getElementById("reloadButton");
             const streamStatus = document.getElementById("streamStatus");
+            const colorModes = ["swap_rb", "raw", "rgb_to_bgr"];
+            let colorModeIndex = 0;
 
             function reconnectStream() {
                 const overlay = overlayToggle.checked ? "1" : "0";
-                cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&ts=${Date.now()}`;
-                streamStatus.textContent = overlayToggle.checked
+                const color = colorModes[colorModeIndex];
+                cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&color=${color}&ts=${Date.now()}`;
+                const streamText = overlayToggle.checked
                     ? "Ein Stream mit leichtem Bewegungsrahmen."
                     : "Cleaner Direktstream ohne Analyse-Overlay.";
+                streamStatus.textContent = `${streamText} Farbmodus: ${color}`;
+            }
+
+            function cycleColorMode() {
+                colorModeIndex = (colorModeIndex + 1) % colorModes.length;
+                reconnectStream();
             }
 
             overlayToggle.addEventListener("change", reconnectStream);
+            colorButton.addEventListener("click", cycleColorMode);
             reloadButton.addEventListener("click", reconnectStream);
         </script>
     </body>
