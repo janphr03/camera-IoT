@@ -3,18 +3,18 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Sentinel Cam</title>
+        <title>Sentinel Stream</title>
         <style>
             :root {
-                --bg: #070907;
-                --panel: rgba(12, 15, 13, 0.78);
-                --line: rgba(255, 255, 255, 0.1);
-                --text: #f4f6f0;
-                --muted: #a4ad9f;
-                --accent: #d2f58d;
-                --accent-soft: rgba(210, 245, 141, 0.16);
-                --danger: #ff7d66;
-                --shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+                --bg: #06111f;
+                --blue: #52a8ff;
+                --blue-soft: rgba(82, 168, 255, 0.16);
+                --cyan: #7ce7ff;
+                --panel: rgba(7, 18, 34, 0.64);
+                --line: rgba(158, 205, 255, 0.16);
+                --text: #f3f8ff;
+                --muted: #9bb4cf;
+                --shadow: 0 30px 90px rgba(0, 0, 0, 0.52);
             }
 
             * {
@@ -33,59 +33,44 @@
                 font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
                 background:
-                    radial-gradient(circle at 20% 10%, rgba(210, 245, 141, 0.12), transparent 24%),
-                    radial-gradient(circle at 85% 20%, rgba(90, 130, 80, 0.16), transparent 28%),
-                    linear-gradient(180deg, #10140f 0%, var(--bg) 100%);
+                    radial-gradient(circle at 18% 12%, rgba(82, 168, 255, 0.22), transparent 26%),
+                    radial-gradient(circle at 86% 16%, rgba(124, 231, 255, 0.12), transparent 24%),
+                    linear-gradient(180deg, #0a1a2e 0%, var(--bg) 100%);
             }
 
-            .camera-stage {
+            .stage {
                 position: fixed;
                 inset: 0;
-                display: grid;
-                place-items: center;
                 padding: 14px;
+                display: grid;
             }
 
-            .camera-frame {
+            .viewer {
                 position: relative;
-                width: 100%;
-                height: 100%;
                 overflow: hidden;
-                border-radius: 30px;
-                border: 1px solid rgba(210, 245, 141, 0.18);
-                background: #050605;
+                border-radius: 34px;
+                border: 1px solid rgba(124, 231, 255, 0.2);
+                background: #020914;
                 box-shadow: var(--shadow);
             }
 
-            .camera-frame::before {
+            .viewer::before {
                 content: "";
                 position: absolute;
                 inset: 0;
                 z-index: 2;
                 pointer-events: none;
                 background:
-                    linear-gradient(180deg, rgba(0, 0, 0, 0.62) 0%, rgba(0, 0, 0, 0.04) 22%, rgba(0, 0, 0, 0.08) 72%, rgba(0, 0, 0, 0.68) 100%),
-                    radial-gradient(circle at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.32) 100%);
-            }
-
-            .camera-frame::after {
-                content: "";
-                position: absolute;
-                inset: 0;
-                z-index: 3;
-                pointer-events: none;
-                opacity: 0.12;
-                background-image: linear-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px);
-                background-size: 100% 4px;
-                mix-blend-mode: overlay;
+                    linear-gradient(180deg, rgba(2, 9, 20, 0.78) 0%, rgba(2, 9, 20, 0.08) 20%, rgba(2, 9, 20, 0.04) 70%, rgba(2, 9, 20, 0.72) 100%),
+                    radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.35) 100%);
             }
 
             #cameraFeed {
                 width: 100%;
                 height: 100%;
-                object-fit: cover;
                 display: block;
-                background: #050605;
+                object-fit: cover;
+                background: #020914;
             }
 
             .topbar,
@@ -93,7 +78,7 @@
                 position: absolute;
                 left: 22px;
                 right: 22px;
-                z-index: 4;
+                z-index: 3;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -112,7 +97,7 @@
                 border: 1px solid var(--line);
                 background: var(--panel);
                 backdrop-filter: blur(18px);
-                box-shadow: 0 14px 40px rgba(0, 0, 0, 0.22);
+                box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
             }
 
             .brand {
@@ -120,18 +105,18 @@
                 align-items: center;
                 gap: 12px;
                 padding: 12px 14px;
-                border-radius: 20px;
+                border-radius: 22px;
             }
 
             .brand-mark {
-                width: 38px;
-                height: 38px;
-                border-radius: 13px;
+                width: 42px;
+                height: 42px;
+                border-radius: 15px;
                 display: grid;
                 place-items: center;
-                color: #202d13;
+                color: #04101d;
                 font-weight: 900;
-                background: linear-gradient(135deg, var(--accent), #efffca);
+                background: linear-gradient(135deg, var(--cyan), var(--blue));
             }
 
             h1,
@@ -140,8 +125,8 @@
             }
 
             h1 {
-                font-size: 0.98rem;
-                letter-spacing: 0.03em;
+                font-size: 1rem;
+                letter-spacing: 0.04em;
             }
 
             .muted {
@@ -154,7 +139,7 @@
                 align-items: center;
                 gap: 10px;
                 padding: 10px;
-                border-radius: 20px;
+                border-radius: 22px;
             }
 
             .switch {
@@ -171,84 +156,75 @@
             .switch input {
                 width: 18px;
                 height: 18px;
-                accent-color: var(--accent);
+                accent-color: var(--blue);
             }
 
             button {
                 border: 0;
                 border-radius: 999px;
                 padding: 12px 14px;
-                color: #203013;
-                background: linear-gradient(135deg, var(--accent), #efffca);
+                color: #04101d;
+                background: linear-gradient(135deg, var(--cyan), var(--blue));
                 font-weight: 800;
                 cursor: pointer;
             }
 
-            .status-strip {
-                display: flex;
+            .status {
+                display: inline-flex;
                 align-items: center;
                 gap: 10px;
                 padding: 12px 14px;
                 border-radius: 999px;
-                max-width: min(620px, 100%);
+                max-width: min(680px, 100%);
             }
 
             .dot {
                 width: 9px;
                 height: 9px;
                 border-radius: 50%;
-                background: var(--accent);
-                box-shadow: 0 0 16px rgba(210, 245, 141, 0.85);
+                background: var(--cyan);
+                box-shadow: 0 0 18px rgba(124, 231, 255, 0.95);
             }
 
-            .corner {
+            .reticle {
                 position: absolute;
-                z-index: 4;
-                width: 46px;
-                height: 46px;
-                border-color: rgba(210, 245, 141, 0.7);
+                z-index: 3;
+                inset: 86px 32px;
                 pointer-events: none;
+                border: 1px solid rgba(124, 231, 255, 0.08);
+                border-radius: 24px;
             }
 
-            .corner.top-left {
-                top: 92px;
-                left: 32px;
+            .reticle::before,
+            .reticle::after {
+                content: "";
+                position: absolute;
+                width: 64px;
+                height: 64px;
+                border-color: rgba(124, 231, 255, 0.52);
+            }
+
+            .reticle::before {
+                top: -1px;
+                left: -1px;
                 border-top: 2px solid;
                 border-left: 2px solid;
-                border-color: rgba(210, 245, 141, 0.62);
             }
 
-            .corner.top-right {
-                top: 92px;
-                right: 32px;
-                border-top: 2px solid;
-                border-right: 2px solid;
-                border-color: rgba(210, 245, 141, 0.62);
-            }
-
-            .corner.bottom-left {
-                bottom: 92px;
-                left: 32px;
-                border-bottom: 2px solid;
-                border-left: 2px solid;
-                border-color: rgba(210, 245, 141, 0.62);
-            }
-
-            .corner.bottom-right {
-                right: 32px;
-                bottom: 92px;
+            .reticle::after {
+                right: -1px;
+                bottom: -1px;
                 border-right: 2px solid;
                 border-bottom: 2px solid;
-                border-color: rgba(210, 245, 141, 0.62);
             }
 
             @media (max-width: 720px) {
-                .camera-stage {
+                .stage {
                     padding: 8px;
                 }
 
-                .camera-frame {
-                    border-radius: 22px;
+                .viewer {
+                    border-radius: 24px;
                 }
 
                 .topbar,
@@ -267,51 +243,48 @@
                     bottom: 12px;
                 }
 
-                .controls,
                 .brand,
-                .status-strip {
+                .controls,
+                .status {
                     width: 100%;
                     justify-content: space-between;
                 }
 
-                .corner {
+                .reticle {
                     display: none;
                 }
             }
         </style>
     </head>
     <body>
-        <main class="camera-stage">
-            <section class="camera-frame">
+        <main class="stage">
+            <section class="viewer">
                 <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0" alt="Kamera Livebild" />
 
                 <div class="topbar">
                     <div class="brand glass">
                         <div class="brand-mark">SC</div>
                         <div>
-                            <h1>Sentinel Live</h1>
-                            <p class="muted">Vollbild Kameraansicht</p>
+                            <h1>Sentinel Stream</h1>
+                            <p class="muted">Ein Stream, keine Polling-Requests</p>
                         </div>
                     </div>
 
                     <div class="controls glass">
                         <label class="switch">
                             <input id="overlayToggle" type="checkbox" />
-                            <span>Overlay</span>
+                            <span>Bewegungsrahmen</span>
                         </label>
-                        <button id="reloadButton" type="button">Neu laden</button>
+                        <button id="reloadButton" type="button">Neu verbinden</button>
                     </div>
                 </div>
 
-                <div class="corner top-left"></div>
-                <div class="corner top-right"></div>
-                <div class="corner bottom-left"></div>
-                <div class="corner bottom-right"></div>
+                <div class="reticle"></div>
 
                 <div class="bottombar">
-                    <div class="status-strip glass">
+                    <div class="status glass">
                         <span class="dot"></span>
-                        <span id="streamStatus">Ein einzelner Live-Stream aktiv. Keine Snapshot-Requests.</span>
+                        <span id="streamStatus">Direkter MJPEG-Stream vom Raspberry Pi.</span>
                     </div>
                 </div>
             </section>
@@ -323,16 +296,16 @@
             const reloadButton = document.getElementById("reloadButton");
             const streamStatus = document.getElementById("streamStatus");
 
-            function setStream() {
+            function reconnectStream() {
                 const overlay = overlayToggle.checked ? "1" : "0";
                 cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&ts=${Date.now()}`;
                 streamStatus.textContent = overlayToggle.checked
-                    ? "Live-Stream mit einfachem Bewegungsrahmen."
-                    : "Cleaner Live-Stream ohne Overlay.";
+                    ? "Ein Stream mit leichtem Bewegungsrahmen."
+                    : "Cleaner Direktstream ohne Analyse-Overlay.";
             }
 
-            overlayToggle.addEventListener("change", setStream);
-            reloadButton.addEventListener("click", setStream);
+            overlayToggle.addEventListener("change", reconnectStream);
+            reloadButton.addEventListener("click", reconnectStream);
         </script>
     </body>
 </html>
