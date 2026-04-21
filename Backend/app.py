@@ -1,14 +1,19 @@
 from pathlib import Path
+import base64
+import os
 import threading
 import time
 import webbrowser
 
 import cv2
+from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, render_template, request
+from openai import OpenAI
 from picamera2 import Picamera2
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 class CameraApp:
@@ -23,6 +28,7 @@ class CameraApp:
             "/camera_feed/<camera_id>", "camera_feed", self.camera_feed
         )
 
+        self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
         config = self.picam2.create_video_configuration(
             main={"size": (640, 480), "format": "RGB888"},
@@ -36,6 +42,11 @@ class CameraApp:
         self.min_area = 1400
         self.padding = 25
         self.previous_gray = None
+        self.classification_interval = 5
+        self.last_classification_time = 0
+        self.current_label = "Noch kein Objekt"
+        self.classification_in_progress = False
+        self.label_lock = threading.Lock()
 
     def index(self):
         return render_template("index.html")
@@ -45,6 +56,72 @@ class CameraApp:
             ".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
         )
         return buffer.tobytes() if ok else None
+
+    def classify_object_with_openai(self, roi):
+        if self.client is None:
+            return "OpenAI API-Key fehlt"
+
+        ok, buffer = cv2.imencode(".jpg", roi)
+        if not ok:
+            return self.current_label
+
+        image_base64 = base64.b64encode(buffer.tobytes()).decode("utf-8")
+        data_url = f"data:image/jpeg;base64,{image_base64}"
+
+        try:
+            response = self.client.responses.create(
+                model="gpt-4.1-mini",
+                input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": (
+                                    "Nenne nur das Hauptobjekt in diesem Bildausschnitt. "
+                                    "Antworte extrem kurz, nur 1 bis 3 Woerter, auf Deutsch. "
+                                    "Beispiele: Mensch, Hund, Katze, Auto, Vogel, Auto, Paket, Unbekanntes Objekt."
+                                ),
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": data_url,
+                            },
+                        ],
+                    }
+                ],
+            )
+            label = response.output_text.strip()
+            return label if label else "Unbekanntes Objekt"
+        except Exception as exc:
+            print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
+            return self.current_label
+
+    def classify_object_in_background(self, roi):
+        try:
+            label = self.classify_object_with_openai(roi)
+            with self.label_lock:
+                self.current_label = label
+            print(f"[{time.strftime('%H:%M:%S')}] Bewegung erkannt: {label}")
+        finally:
+            self.classification_in_progress = False
+
+    def maybe_start_classification(self, roi):
+        current_time = time.time()
+        if self.classification_in_progress:
+            return
+
+        if current_time - self.last_classification_time < self.classification_interval:
+            return
+
+        self.last_classification_time = current_time
+        self.classification_in_progress = True
+        thread = threading.Thread(
+            target=self.classify_object_in_background,
+            args=(roi.copy(),),
+            daemon=True,
+        )
+        thread.start()
 
     def draw_light_motion_overlay(self, frame_bgr):
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
@@ -88,7 +165,24 @@ class CameraApp:
         min_y = max(0, min_y - self.padding)
         max_x = min(frame_width, max_x + self.padding)
         max_y = min(frame_height, max_y + self.padding)
+
+        roi = frame_bgr[min_y:max_y, min_x:max_x]
+        self.maybe_start_classification(roi)
+
         cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), (255, 120, 40), 2)
+        with self.label_lock:
+            label = self.current_label
+
+        label_origin_y = max(28, min_y - 10)
+        cv2.putText(
+            frame_bgr,
+            label,
+            (min_x, label_origin_y),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.68,
+            (255, 120, 40),
+            2,
+        )
         return frame_bgr
 
     def generate_stream(self, overlay=False):
