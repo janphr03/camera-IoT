@@ -177,14 +177,13 @@ class CameraApp:
             return self.current_label
 
     def analyze_frame(self, frame_bgr):
-        overlay_frame = frame_bgr.copy()
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
         if self.previous_gray is None:
             self.previous_gray = gray
             self.last_motion_status = "System bereit"
-            return overlay_frame
+            return frame_bgr
 
         frame_delta = cv2.absdiff(self.previous_gray, gray)
         _, thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)
@@ -227,33 +226,20 @@ class CameraApp:
                 self.last_classification_time = current_time
                 print(f"[{time.strftime('%H:%M:%S')}] Erkannt: {self.current_label}")
 
-            cv2.rectangle(overlay_frame, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
-            label_y = max(25, min_y - 10)
-            cv2.putText(
-                overlay_frame,
-                self.current_label,
-                (min_x, label_y),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 0, 255),
-                2,
-            )
             self.last_motion_status = "Bewegung erkannt"
         else:
             self.last_motion_status = "Keine Bewegung"
 
-        status_color = (0, 0, 255) if motion_detected else (0, 255, 0)
-        cv2.putText(
-            overlay_frame,
-            self.last_motion_status,
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
-            status_color,
-            2,
-        )
-
         self.previous_gray = gray
+        return self.create_simple_overlay(frame_bgr)
+
+    def create_simple_overlay(self, frame_bgr):
+        if self.last_detection_box is None:
+            return frame_bgr
+
+        overlay_frame = frame_bgr.copy()
+        min_x, min_y, max_x, max_y = self.last_detection_box
+        cv2.rectangle(overlay_frame, (min_x, min_y), (max_x, max_y), (0, 0, 255), 2)
         return overlay_frame
 
     def encode_frame(self, frame_bgr):
@@ -268,7 +254,11 @@ class CameraApp:
             frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             overlay_frame = self.analyze_frame(frame_bgr)
             raw_bytes = self.encode_frame(frame_bgr)
-            overlay_bytes = self.encode_frame(overlay_frame)
+
+            if self.last_detection_box is None:
+                overlay_bytes = raw_bytes
+            else:
+                overlay_bytes = self.encode_frame(overlay_frame)
 
             if raw_bytes and overlay_bytes:
                 with self.frame_lock:

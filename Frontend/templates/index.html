@@ -434,17 +434,6 @@
                 display: block;
             }
 
-            .modal-overlay {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                padding: 14px;
-                background: linear-gradient(180deg, rgba(0, 0, 0, 0.36) 0%, rgba(0, 0, 0, 0.02) 50%, rgba(0, 0, 0, 0.62) 100%);
-                pointer-events: none;
-            }
-
             .modal-stats {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -572,6 +561,7 @@
                             <input type="checkbox" id="overlayToggle" checked />
                             <span>Overlay anzeigen</span>
                         </label>
+                        <span class="badge" id="modalOverlayState">Overlay an</span>
                         <button class="secondary" id="modalRefreshButton">Neu laden</button>
                         <button class="primary" id="closeModalButton">Zurueck</button>
                     </div>
@@ -581,10 +571,6 @@
 
                 <section class="modal-feed">
                     <img id="modalImage" alt="Kamera Livebild" />
-                    <div class="modal-overlay">
-                        <span id="modalMotionBadge" class="chip">Warte auf Daten</span>
-                        <span class="chip" id="modalOverlayState">Overlay an</span>
-                    </div>
                 </section>
 
                 <section class="modal-stats">
@@ -634,7 +620,6 @@
             const modalSubtitle = document.getElementById("modalSubtitle");
             const modalSystemStatus = document.getElementById("modalSystemStatus");
             const modalImage = document.getElementById("modalImage");
-            const modalMotionBadge = document.getElementById("modalMotionBadge");
             const modalOverlayState = document.getElementById("modalOverlayState");
             const modalMotionValue = document.getElementById("modalMotionValue");
             const modalLabelValue = document.getElementById("modalLabelValue");
@@ -739,11 +724,6 @@
                 if (state.modalOpen && state.selectedCameraId) {
                     const cameraStatus = statusFor(state.selectedCameraId);
                     modalSystemStatus.textContent = `${cameraStatus.motion} · ${cameraStatus.label}`;
-                    modalMotionBadge.textContent = cameraStatus.motion;
-                    modalMotionBadge.classList.toggle(
-                        "alert",
-                        cameraStatus.motion === "Bewegung erkannt"
-                    );
                     modalMotionValue.textContent = cameraStatus.motion;
                     modalLabelValue.textContent = cameraStatus.label;
                     modalIntervalValue.textContent = `${state.status.classification_interval} Sekunden`;
@@ -772,11 +752,6 @@
                 const cameraStatus = statusFor(cameraId);
                 modalTitle.textContent = camera.name;
                 modalSubtitle.textContent = `${camera.location} · ${camera.description}`;
-                modalMotionBadge.textContent = cameraStatus.motion;
-                modalMotionBadge.classList.toggle(
-                    "alert",
-                    cameraStatus.motion === "Bewegung erkannt"
-                );
                 modalMotionValue.textContent = cameraStatus.motion;
                 modalLabelValue.textContent = cameraStatus.label;
                 modalIntervalValue.textContent = `${state.status.classification_interval} Sekunden`;
@@ -785,7 +760,7 @@
                 refreshModalSnapshot();
 
                 clearInterval(modalRefreshTimer);
-                modalRefreshTimer = setInterval(refreshModalSnapshot, 320);
+                modalRefreshTimer = setInterval(refreshModalSnapshot, 480);
             }
 
             function closeCamera() {
