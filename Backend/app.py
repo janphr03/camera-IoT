@@ -31,7 +31,7 @@ class CameraApp:
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
         config = self.picam2.create_video_configuration(
-            main={"size": (640, 480), "format": "RGB888"},
+            main={"size": (640, 480), "format": "BGR888"},
             controls={"FrameDurationLimits": (33333, 33333)},
         )
         self.picam2.configure(config)
@@ -61,7 +61,8 @@ class CameraApp:
         if self.client is None:
             return "OpenAI API-Key fehlt"
 
-        ok, buffer = cv2.imencode(".jpg", roi)
+        roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+        ok, buffer = cv2.imencode(".jpg", roi_rgb)
         if not ok:
             return self.current_label
 
@@ -190,7 +191,7 @@ class CameraApp:
 
         while True:
             frame = self.picam2.capture_array()
-            frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            frame_bgr = frame
 
             if overlay:
                 frame_bgr = self.draw_light_motion_overlay(frame_bgr)
