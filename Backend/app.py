@@ -55,7 +55,6 @@ class CameraApp:
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
         self.label_event = threading.Event()
-        self.default_color_mode = os.getenv("CAMERA_COLOR_MODE", "raw")
 
     def index(self):
         return render_template("index.html")
@@ -65,18 +64,6 @@ class CameraApp:
             ".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
         )
         return buffer.tobytes() if ok else None
-
-    def normalize_frame_for_opencv(self, frame, color_mode):
-        if color_mode == "raw":
-            return frame
-
-        if color_mode == "rgb_to_bgr":
-            return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-
-        if color_mode == "swap_rb":
-            return frame[:, :, [2, 1, 0]]
-
-        return frame[:, :, [2, 1, 0]]
 
     def classify_object_with_openai(self, roi):
         if self.client is None:
@@ -229,16 +216,15 @@ class CameraApp:
         overlay_color = self.draw_detection_box(frame_bgr, self.last_detection_box)
         return frame_bgr
 
-    def generate_stream(self, overlay=False, color_mode=None):
+    def generate_stream(self, overlay=False):
         self.previous_gray = None
         self.frame_index = 0
         self.last_detection_box = None
         self.last_motion_time = 0
-        color_mode = color_mode or self.default_color_mode
 
         while True:
             frame = self.picam2.capture_array()
-            frame_bgr = self.normalize_frame_for_opencv(frame, color_mode)
+            frame_bgr = frame
 
             if overlay:
                 frame_bgr = self.draw_light_motion_overlay(frame_bgr)
@@ -257,9 +243,8 @@ class CameraApp:
             return jsonify({"error": "Kamera nicht gefunden."}), 404
 
         overlay = request.args.get("overlay", "0") == "1"
-        color_mode = request.args.get("color", self.default_color_mode)
         return Response(
-            self.generate_stream(overlay=overlay, color_mode=color_mode),
+            self.generate_stream(overlay=overlay),
             mimetype="multipart/x-mixed-replace; boundary=frame",
         )
 

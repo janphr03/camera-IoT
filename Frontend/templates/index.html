@@ -244,6 +244,15 @@
                 background: #020914;
             }
 
+            #cameraFeed.fill-frame {
+                object-fit: cover;
+                object-position: center center;
+            }
+
+            #cameraFeed.mirrored {
+                transform: scaleX(-1);
+            }
+
             .viewer::before {
                 content: "";
                 position: absolute;
@@ -397,11 +406,25 @@
                     </article>
 
                     <article class="control-card">
-                        <div>
-                            <h3>Farbkanal</h3>
-                            <p class="muted">Falls Rot/Blau wieder kippt.</p>
+                        <div class="control-row">
+                            <div>
+                                <h3>Bild fuellen</h3>
+                                <p class="muted">Fuellt den Viewer, kann aber zuschneiden.</p>
+                            </div>
+                            <label class="switch">
+                                <input id="fitToggle" type="checkbox" />
+                            </label>
                         </div>
-                        <button class="ghost-button" id="colorButton" type="button">Farbe wechseln</button>
+                        <div class="control-row">
+                            <div>
+                                <h3>Spiegeln</h3>
+                                <p class="muted">Praktisch, wenn die Kamera seitenverkehrt wirkt.</p>
+                            </div>
+                            <label class="switch">
+                                <input id="mirrorToggle" type="checkbox" />
+                            </label>
+                        </div>
+                        <button class="ghost-button" id="fullscreenButton" type="button">Vollbild oeffnen</button>
                     </article>
                 </section>
 
@@ -428,7 +451,7 @@
             </aside>
 
             <section class="viewer">
-                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=raw" alt="Kamera Livebild" />
+                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0" alt="Kamera Livebild" />
 
                 <div class="viewer-top">
                     <span class="viewer-badge">Pi Camera · 640 x 480</span>
@@ -446,32 +469,43 @@
         <script>
             const cameraFeed = document.getElementById("cameraFeed");
             const overlayToggle = document.getElementById("overlayToggle");
-            const colorButton = document.getElementById("colorButton");
+            const fitToggle = document.getElementById("fitToggle");
+            const mirrorToggle = document.getElementById("mirrorToggle");
+            const fullscreenButton = document.getElementById("fullscreenButton");
             const reloadButton = document.getElementById("reloadButton");
             const streamStatus = document.getElementById("streamStatus");
             const objectLabel = document.getElementById("objectLabel");
             const objectTime = document.getElementById("objectTime");
             const objectButton = document.getElementById("objectButton");
-            const colorModes = ["raw", "rgb_to_bgr", "swap_rb"];
-            let colorModeIndex = 0;
 
             function reconnectStream() {
                 const overlay = overlayToggle.checked ? "1" : "0";
-                const color = colorModes[colorModeIndex];
-                cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&color=${color}&ts=${Date.now()}`;
+                cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&ts=${Date.now()}`;
                 const streamText = overlayToggle.checked
-                    ? "Bewegungsrahmen und Label aktiv."
+                    ? "Bewegungsrahmen aktiv."
                     : "Cleaner Direktstream aktiv.";
-                streamStatus.textContent = `${streamText} Farbmodus: ${color}`;
+                streamStatus.textContent = streamText;
             }
 
-            function cycleColorMode() {
-                colorModeIndex = (colorModeIndex + 1) % colorModes.length;
-                reconnectStream();
+            function updateLocalViewOptions() {
+                cameraFeed.classList.toggle("fill-frame", fitToggle.checked);
+                cameraFeed.classList.toggle("mirrored", mirrorToggle.checked);
+            }
+
+            function openFullscreen() {
+                const viewer = document.querySelector(".viewer");
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                    return;
+                }
+
+                viewer.requestFullscreen();
             }
 
             overlayToggle.addEventListener("change", reconnectStream);
-            colorButton.addEventListener("click", cycleColorMode);
+            fitToggle.addEventListener("change", updateLocalViewOptions);
+            mirrorToggle.addEventListener("change", updateLocalViewOptions);
+            fullscreenButton.addEventListener("click", openFullscreen);
             reloadButton.addEventListener("click", reconnectStream);
 
             const cameraEvents = new EventSource("/camera_events");
