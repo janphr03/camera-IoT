@@ -407,6 +407,11 @@
                         <p class="muted">Requests</p>
                         <strong>1 Stream, kein Polling</strong>
                     </article>
+                    <article class="info-card object-card">
+                        <p class="muted">Erkanntes Objekt</p>
+                        <strong id="objectLabel">Noch kein Objekt</strong>
+                        <p class="muted" id="objectTime">Warte auf Bewegung</p>
+                    </article>
                     <article class="info-card">
                         <p class="muted">Layout</p>
                         <strong>Bild rechts buendig</strong>
@@ -436,6 +441,8 @@
             const colorButton = document.getElementById("colorButton");
             const reloadButton = document.getElementById("reloadButton");
             const streamStatus = document.getElementById("streamStatus");
+            const objectLabel = document.getElementById("objectLabel");
+            const objectTime = document.getElementById("objectTime");
             const colorModes = ["raw", "rgb_to_bgr", "swap_rb"];
             let colorModeIndex = 0;
 
@@ -457,6 +464,17 @@
             overlayToggle.addEventListener("change", reconnectStream);
             colorButton.addEventListener("click", cycleColorMode);
             reloadButton.addEventListener("click", reconnectStream);
+
+            const cameraEvents = new EventSource("/camera_events");
+            cameraEvents.onmessage = (event) => {
+                const payload = JSON.parse(event.data);
+                objectLabel.textContent = payload.label;
+                objectTime.textContent = `Zuletzt erkannt um ${payload.timestamp}`;
+            };
+
+            cameraEvents.onerror = () => {
+                objectTime.textContent = "Objekt-Events momentan nicht verbunden";
+            };
         </script>
     </body>
 </html>

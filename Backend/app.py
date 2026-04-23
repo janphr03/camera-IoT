@@ -1,5 +1,6 @@
 from pathlib import Path
 import base64
+import json
 import os
 import threading
 import time
@@ -27,6 +28,7 @@ class CameraApp:
         self.app.add_url_rule(
             "/camera_feed/<camera_id>", "camera_feed", self.camera_feed
         )
+        self.app.add_url_rule("/camera_events", "camera_events", self.camera_events)
 
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
@@ -52,6 +54,7 @@ class CameraApp:
         self.current_label = "Noch kein Objekt"
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
+        self.label_event = threading.Event()
         self.default_color_mode = os.getenv("CAMERA_COLOR_MODE", "raw")
 
     def index(self):
@@ -122,6 +125,7 @@ class CameraApp:
             label = self.classify_object_with_openai(roi)
             with self.label_lock:
                 self.current_label = label
+                self.label_event.set()
             print(f"[{time.strftime('%H:%M:%S')}] Bewegung erkannt: {label}")
         finally:
             self.classification_in_progress = False
@@ -203,43 +207,6 @@ class CameraApp:
         cv2.line(frame_bgr, (max_x, max_y), (max_x, max_y - corner_length), overlay_color, line_thickness)
         return overlay_color
 
-    def draw_center_label(self, frame_bgr, overlay_color):
-        with self.label_lock:
-            label = self.current_label
-
-        frame_height, frame_width = frame_bgr.shape[:2]
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.8
-        thickness = 2
-        text_size, baseline = cv2.getTextSize(label, font, font_scale, thickness)
-        text_width, text_height = text_size
-        label_x = max(16, (frame_width - text_width) // 2)
-        label_y = frame_height - 70
-        box_padding_x = 14
-        box_padding_y = 10
-        box_x1 = max(8, label_x - box_padding_x)
-        box_y1 = max(8, label_y - text_height - box_padding_y)
-        box_x2 = min(frame_width - 8, label_x + text_width + box_padding_x)
-        box_y2 = min(frame_height - 8, label_y + baseline + box_padding_y)
-
-        cv2.rectangle(
-            frame_bgr,
-            (box_x1, box_y1),
-            (box_x2, box_y2),
-            (10, 18, 28),
-            -1,
-        )
-        cv2.putText(
-            frame_bgr,
-            label,
-            (label_x, label_y),
-            font,
-            font_scale,
-            overlay_color,
-            thickness,
-        )
-        return frame_bgr
-
     def draw_light_motion_overlay(self, frame_bgr):
         self.frame_index += 1
         should_analyze = self.frame_index % self.motion_analysis_stride == 0
@@ -260,7 +227,7 @@ class CameraApp:
             return frame_bgr
 
         overlay_color = self.draw_detection_box(frame_bgr, self.last_detection_box)
-        return self.draw_center_label(frame_bgr, overlay_color)
+        return frame_bgr
 
     def generate_stream(self, overlay=False, color_mode=None):
         self.previous_gray = None
@@ -294,6 +261,34 @@ class CameraApp:
         return Response(
             self.generate_stream(overlay=overlay, color_mode=color_mode),
             mimetype="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    def generate_camera_events(self):
+        last_sent_label = None
+
+        while True:
+            self.label_event.wait(timeout=20)
+            self.label_event.clear()
+
+            with self.label_lock:
+                label = self.current_label
+
+            if label == last_sent_label:
+                yield ": keepalive\n\n"
+                continue
+
+            last_sent_label = label
+            payload = {
+                "label": label,
+                "timestamp": time.strftime("%H:%M:%S"),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+
+    def camera_events(self):
+        return Response(
+            self.generate_camera_events(),
+            mimetype="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
     def open_browser(self):
