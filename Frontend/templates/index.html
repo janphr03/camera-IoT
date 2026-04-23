@@ -6,15 +6,19 @@
         <title>Sentinel Stream</title>
         <style>
             :root {
-                --bg: #06111f;
-                --blue: #52a8ff;
-                --blue-soft: rgba(82, 168, 255, 0.16);
-                --cyan: #7ce7ff;
-                --panel: rgba(7, 18, 34, 0.64);
-                --line: rgba(158, 205, 255, 0.16);
-                --text: #f3f8ff;
-                --muted: #9bb4cf;
-                --shadow: 0 30px 90px rgba(0, 0, 0, 0.52);
+                --bg: #061021;
+                --bg-2: #071a34;
+                --panel: rgba(8, 23, 45, 0.82);
+                --panel-strong: #0a1d39;
+                --panel-soft: rgba(255, 255, 255, 0.055);
+                --line: rgba(151, 203, 255, 0.15);
+                --line-strong: rgba(112, 202, 255, 0.34);
+                --text: #f5f9ff;
+                --muted: #9bb5d3;
+                --blue: #4fa9ff;
+                --cyan: #76e4ff;
+                --deep: #061225;
+                --shadow: 0 32px 90px rgba(0, 0, 0, 0.48);
             }
 
             * {
@@ -30,28 +34,207 @@
             body {
                 margin: 0;
                 overflow: hidden;
-                font-family: "Segoe UI", "Helvetica Neue", sans-serif;
                 color: var(--text);
+                font-family: ui-sans-serif, "Avenir Next", "Segoe UI", sans-serif;
                 background:
-                    radial-gradient(circle at 18% 12%, rgba(82, 168, 255, 0.22), transparent 26%),
-                    radial-gradient(circle at 86% 16%, rgba(124, 231, 255, 0.12), transparent 24%),
-                    linear-gradient(180deg, #0a1a2e 0%, var(--bg) 100%);
+                    radial-gradient(circle at 8% 12%, rgba(79, 169, 255, 0.22), transparent 28%),
+                    radial-gradient(circle at 92% 8%, rgba(118, 228, 255, 0.14), transparent 24%),
+                    linear-gradient(145deg, var(--bg) 0%, #020814 100%);
             }
 
-            .stage {
-                position: fixed;
-                inset: 0;
-                padding: 14px;
+            .app {
+                width: min(1500px, calc(100% - 24px));
+                height: calc(100% - 24px);
+                margin: 12px auto;
                 display: grid;
+                grid-template-columns: 330px minmax(0, 1fr);
+                gap: 14px;
+            }
+
+            .sidebar,
+            .viewer {
+                border: 1px solid var(--line);
+                background: var(--panel);
+                box-shadow: var(--shadow);
+            }
+
+            .sidebar {
+                border-radius: 30px;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 18px;
+                backdrop-filter: blur(18px);
             }
 
             .viewer {
                 position: relative;
                 overflow: hidden;
-                border-radius: 34px;
-                border: 1px solid rgba(124, 231, 255, 0.2);
+                border-radius: 32px;
                 background: #020914;
-                box-shadow: var(--shadow);
+            }
+
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+            }
+
+            .brand-mark {
+                width: 52px;
+                height: 52px;
+                border-radius: 18px;
+                display: grid;
+                place-items: center;
+                color: #031225;
+                font-weight: 950;
+                letter-spacing: -0.04em;
+                background: linear-gradient(135deg, var(--cyan), var(--blue));
+                box-shadow: 0 14px 34px rgba(79, 169, 255, 0.26);
+            }
+
+            h1,
+            h2,
+            h3,
+            p {
+                margin: 0;
+            }
+
+            h1 {
+                font-size: 1.16rem;
+                line-height: 1;
+                letter-spacing: -0.03em;
+            }
+
+            h2 {
+                font-size: clamp(2.1rem, 4vw, 3.4rem);
+                line-height: 0.94;
+                letter-spacing: -0.06em;
+            }
+
+            h3 {
+                font-size: 0.98rem;
+                letter-spacing: -0.02em;
+            }
+
+            .muted {
+                color: var(--muted);
+            }
+
+            .hero-copy {
+                padding: 18px;
+                border-radius: 24px;
+                border: 1px solid var(--line);
+                background:
+                    radial-gradient(circle at top right, rgba(118, 228, 255, 0.13), transparent 30%),
+                    rgba(255, 255, 255, 0.045);
+            }
+
+            .eyebrow {
+                margin-bottom: 10px;
+                color: var(--cyan);
+                text-transform: uppercase;
+                letter-spacing: 0.14em;
+                font-size: 0.72rem;
+                font-weight: 800;
+            }
+
+            .control-stack,
+            .info-stack {
+                display: grid;
+                gap: 12px;
+            }
+
+            .control-card,
+            .info-card {
+                padding: 16px;
+                border-radius: 22px;
+                border: 1px solid var(--line);
+                background: var(--panel-soft);
+            }
+
+            .control-card {
+                display: grid;
+                gap: 14px;
+            }
+
+            .control-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 12px;
+            }
+
+            .switch {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                cursor: pointer;
+                user-select: none;
+            }
+
+            .switch input {
+                width: 20px;
+                height: 20px;
+                accent-color: var(--blue);
+            }
+
+            button {
+                width: 100%;
+                border: 0;
+                border-radius: 16px;
+                padding: 13px 14px;
+                color: #031225;
+                background: linear-gradient(135deg, var(--cyan), var(--blue));
+                font-weight: 900;
+                cursor: pointer;
+                box-shadow: 0 14px 34px rgba(79, 169, 255, 0.22);
+            }
+
+            .ghost-button {
+                color: var(--text);
+                background: rgba(255, 255, 255, 0.07);
+                border: 1px solid var(--line);
+                box-shadow: none;
+            }
+
+            .status-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 9px;
+                width: fit-content;
+                max-width: 100%;
+                padding: 10px 12px;
+                border-radius: 999px;
+                border: 1px solid var(--line);
+                background: rgba(255, 255, 255, 0.055);
+                color: var(--muted);
+                font-size: 0.86rem;
+            }
+
+            .dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--cyan);
+                box-shadow: 0 0 18px rgba(118, 228, 255, 0.9);
+                flex: 0 0 auto;
+            }
+
+            .info-card strong {
+                display: block;
+                margin-top: 8px;
+                font-size: 1.05rem;
+                color: var(--text);
+            }
+
+            #cameraFeed {
+                width: 100%;
+                height: 100%;
+                display: block;
+                object-fit: contain;
+                object-position: right center;
+                background: #020914;
             }
 
             .viewer::before {
@@ -61,232 +244,188 @@
                 z-index: 2;
                 pointer-events: none;
                 background:
-                    linear-gradient(180deg, rgba(2, 9, 20, 0.78) 0%, rgba(2, 9, 20, 0.08) 20%, rgba(2, 9, 20, 0.04) 70%, rgba(2, 9, 20, 0.72) 100%),
-                    radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.35) 100%);
+                    linear-gradient(180deg, rgba(2, 9, 20, 0.5) 0%, transparent 22%, transparent 72%, rgba(2, 9, 20, 0.46) 100%),
+                    linear-gradient(90deg, rgba(2, 9, 20, 0.32) 0%, transparent 18%);
             }
 
-            #cameraFeed {
-                width: 100%;
-                height: 100%;
-                display: block;
-                object-fit: contain;
-                background: #020914;
-            }
-
-            .topbar,
-            .bottombar {
+            .viewer-top,
+            .viewer-bottom {
                 position: absolute;
+                z-index: 3;
                 left: 22px;
                 right: 22px;
-                z-index: 3;
                 display: flex;
-                align-items: center;
                 justify-content: space-between;
+                align-items: center;
                 gap: 14px;
+                pointer-events: none;
             }
 
-            .topbar {
+            .viewer-top {
                 top: 20px;
             }
 
-            .bottombar {
+            .viewer-bottom {
                 bottom: 20px;
             }
 
-            .glass {
+            .viewer-badge,
+            .resolution-badge {
                 border: 1px solid var(--line);
-                background: var(--panel);
-                backdrop-filter: blur(18px);
-                box-shadow: 0 16px 44px rgba(0, 0, 0, 0.22);
-            }
-
-            .brand {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 12px 14px;
-                border-radius: 22px;
-            }
-
-            .brand-mark {
-                width: 42px;
-                height: 42px;
-                border-radius: 15px;
-                display: grid;
-                place-items: center;
-                color: #04101d;
-                font-weight: 900;
-                background: linear-gradient(135deg, var(--cyan), var(--blue));
-            }
-
-            h1,
-            p {
-                margin: 0;
-            }
-
-            h1 {
-                font-size: 1rem;
-                letter-spacing: 0.04em;
-            }
-
-            .muted {
-                color: var(--muted);
-                font-size: 0.84rem;
-            }
-
-            .controls {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 10px;
-                border-radius: 22px;
-            }
-
-            .switch {
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
+                background: rgba(4, 13, 27, 0.58);
+                backdrop-filter: blur(16px);
+                border-radius: 999px;
                 padding: 10px 12px;
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.05);
-                cursor: pointer;
-                user-select: none;
+                color: var(--muted);
+                font-size: 0.86rem;
             }
 
-            .switch input {
-                width: 18px;
-                height: 18px;
-                accent-color: var(--blue);
+            .resolution-badge {
+                color: var(--text);
             }
 
-            button {
-                border: 0;
-                border-radius: 999px;
-                padding: 12px 14px;
-                color: #04101d;
-                background: linear-gradient(135deg, var(--cyan), var(--blue));
-                font-weight: 800;
-                cursor: pointer;
-            }
-
-            .status {
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                padding: 12px 14px;
-                border-radius: 999px;
-                max-width: min(680px, 100%);
-            }
-
-            .dot {
-                width: 9px;
-                height: 9px;
-                border-radius: 50%;
-                background: var(--cyan);
-                box-shadow: 0 0 18px rgba(124, 231, 255, 0.95);
-            }
-
-            .reticle {
+            .focus-ring {
                 position: absolute;
                 z-index: 3;
-                inset: 86px 32px;
+                inset: 26px;
                 pointer-events: none;
-                border: 1px solid rgba(124, 231, 255, 0.08);
-                border-radius: 24px;
+                border: 1px solid rgba(118, 228, 255, 0.06);
+                border-radius: 22px;
             }
 
-            .reticle::before,
-            .reticle::after {
+            .focus-ring::before,
+            .focus-ring::after {
                 content: "";
                 position: absolute;
-                width: 64px;
-                height: 64px;
-                border-color: rgba(124, 231, 255, 0.52);
+                width: 70px;
+                height: 70px;
+                border-color: rgba(118, 228, 255, 0.48);
             }
 
-            .reticle::before {
+            .focus-ring::before {
                 top: -1px;
-                left: -1px;
+                right: -1px;
                 border-top: 2px solid;
-                border-left: 2px solid;
+                border-right: 2px solid;
             }
 
-            .reticle::after {
+            .focus-ring::after {
                 right: -1px;
                 bottom: -1px;
                 border-right: 2px solid;
                 border-bottom: 2px solid;
             }
 
-            @media (max-width: 720px) {
-                .stage {
-                    padding: 8px;
+            @media (max-width: 980px) {
+                body {
+                    overflow: auto;
+                }
+
+                .app {
+                    height: auto;
+                    min-height: calc(100% - 18px);
+                    width: calc(100% - 16px);
+                    margin: 8px auto;
+                    grid-template-columns: 1fr;
+                }
+
+                .viewer {
+                    min-height: 58vh;
+                }
+            }
+
+            @media (max-width: 640px) {
+                .sidebar {
+                    padding: 16px;
+                    border-radius: 24px;
                 }
 
                 .viewer {
                     border-radius: 24px;
                 }
 
-                .topbar,
-                .bottombar {
+                .viewer-top,
+                .viewer-bottom {
                     left: 12px;
                     right: 12px;
                     flex-direction: column;
-                    align-items: stretch;
+                    align-items: flex-start;
                 }
 
-                .topbar {
-                    top: 12px;
-                }
-
-                .bottombar {
-                    bottom: 12px;
-                }
-
-                .brand,
-                .controls,
-                .status {
-                    width: 100%;
-                    justify-content: space-between;
-                }
-
-                .reticle {
+                .focus-ring {
                     display: none;
                 }
             }
         </style>
     </head>
     <body>
-        <main class="stage">
-            <section class="viewer">
-                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=raw" alt="Kamera Livebild" />
-
-                <div class="topbar">
-                    <div class="brand glass">
-                        <div class="brand-mark">SC</div>
-                        <div>
-                            <h1>Sentinel Stream</h1>
-                            <p class="muted">Ein Stream, keine Polling-Requests</p>
-                        </div>
-                    </div>
-
-                    <div class="controls glass">
-                        <label class="switch">
-                            <input id="overlayToggle" type="checkbox" />
-                            <span>Bewegungsrahmen</span>
-                        </label>
-                        <button id="colorButton" type="button">Farbe wechseln</button>
-                        <button id="reloadButton" type="button">Neu verbinden</button>
+        <main class="app">
+            <aside class="sidebar">
+                <div class="brand">
+                    <div class="brand-mark">SC</div>
+                    <div>
+                        <h1>Sentinel</h1>
+                        <p class="muted">Blue control room</p>
                     </div>
                 </div>
 
-                <div class="reticle"></div>
+                <section class="hero-copy">
+                    <p class="eyebrow">Live Camera</p>
+                    <h2>Direct stream.</h2>
+                    <p class="muted">Der Pi liefert nur den Kamerastream. Die Oberflaeche bleibt leicht und laeuft im Browser.</p>
+                </section>
 
-                <div class="bottombar">
-                    <div class="status glass">
+                <section class="control-stack">
+                    <article class="control-card">
+                        <div class="control-row">
+                            <div>
+                                <h3>Bewegungsrahmen</h3>
+                                <p class="muted">Objektlabel + Box nur bei Bedarf.</p>
+                            </div>
+                            <label class="switch">
+                                <input id="overlayToggle" type="checkbox" />
+                            </label>
+                        </div>
+                        <button id="reloadButton" type="button">Stream neu verbinden</button>
+                    </article>
+
+                    <article class="control-card">
+                        <div>
+                            <h3>Farbkanal</h3>
+                            <p class="muted">Falls Rot/Blau wieder kippt.</p>
+                        </div>
+                        <button class="ghost-button" id="colorButton" type="button">Farbe wechseln</button>
+                    </article>
+                </section>
+
+                <section class="info-stack">
+                    <div class="status-pill">
                         <span class="dot"></span>
-                        <span id="streamStatus">Direkter MJPEG-Stream vom Raspberry Pi.</span>
+                        <span id="streamStatus">Direkter MJPEG-Stream aktiv.</span>
                     </div>
+                    <article class="info-card">
+                        <p class="muted">Requests</p>
+                        <strong>1 Stream, kein Polling</strong>
+                    </article>
+                    <article class="info-card">
+                        <p class="muted">Layout</p>
+                        <strong>Bild rechts buendig</strong>
+                    </article>
+                </section>
+            </aside>
+
+            <section class="viewer">
+                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0&color=raw" alt="Kamera Livebild" />
+
+                <div class="viewer-top">
+                    <span class="viewer-badge">Pi Camera · 640 x 480</span>
+                    <span class="resolution-badge">MJPEG LIVE</span>
+                </div>
+
+                <div class="focus-ring"></div>
+
+                <div class="viewer-bottom">
+                    <span class="viewer-badge">Stream bleibt unvergroessert, rechts ausgerichtet.</span>
                 </div>
             </section>
         </main>
@@ -305,8 +444,8 @@
                 const color = colorModes[colorModeIndex];
                 cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&color=${color}&ts=${Date.now()}`;
                 const streamText = overlayToggle.checked
-                    ? "Ein Stream mit leichtem Bewegungsrahmen."
-                    : "Cleaner Direktstream ohne Analyse-Overlay.";
+                    ? "Bewegungsrahmen und Label aktiv."
+                    : "Cleaner Direktstream aktiv.";
                 streamStatus.textContent = `${streamText} Farbmodus: ${color}`;
             }
 
