@@ -190,7 +190,7 @@ class CameraApp:
         text_size, baseline = cv2.getTextSize(label, font, font_scale, thickness)
         text_width, text_height = text_size
         label_x = max(16, (frame_width - text_width) // 2)
-        label_y = frame_height - 34
+        label_y = frame_height - 70
         box_padding_x = 14
         box_padding_y = 10
         box_x1 = max(8, label_x - box_padding_x)
