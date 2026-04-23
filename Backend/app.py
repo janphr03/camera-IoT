@@ -38,10 +38,15 @@ class CameraApp:
         self.picam2.start()
         time.sleep(1)
 
-        self.jpeg_quality = 68
-        self.min_area = 1400
-        self.padding = 8
+        self.jpeg_quality = 58
+        self.min_area = 650
+        self.padding = 20
         self.previous_gray = None
+        self.frame_index = 0
+        self.motion_analysis_stride = 3
+        self.last_detection_box = None
+        self.last_motion_time = 0
+        self.motion_hold_seconds = 0.55
         self.classification_interval = 5
         self.last_classification_time = 0
         self.current_label = "Noch kein Objekt"
@@ -139,17 +144,17 @@ class CameraApp:
         )
         thread.start()
 
-    def draw_light_motion_overlay(self, frame_bgr):
+    def find_motion_box(self, frame_bgr):
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
         if self.previous_gray is None:
             self.previous_gray = gray
-            return frame_bgr
+            return None
 
         frame_delta = cv2.absdiff(self.previous_gray, gray)
-        _, thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)
-        thresh = cv2.dilate(thresh, None, iterations=2)
+        _, thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)
+        thresh = cv2.dilate(thresh, None, iterations=3)
         contours, _ = cv2.findContours(
             thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
@@ -163,7 +168,7 @@ class CameraApp:
         self.previous_gray = gray
 
         if not relevant_contours:
-            return frame_bgr
+            return None
 
         frame_height, frame_width = frame_bgr.shape[:2]
         largest_contour = max(relevant_contours, key=cv2.contourArea)
@@ -175,15 +180,34 @@ class CameraApp:
         min_y = max(0, min_y - self.padding)
         max_x = min(frame_width, max_x + self.padding)
         max_y = min(frame_height, max_y + self.padding)
+        return min_x, min_y, max_x, max_y
 
-        roi = frame_bgr[min_y:max_y, min_x:max_x]
-        self.maybe_start_classification(roi)
+    def draw_detection_box(self, frame_bgr, detection_box):
+        min_x, min_y, max_x, max_y = detection_box
+        overlay_color = (255, 190, 80)
+        fill_color = (70, 40, 8)
+        corner_length = max(18, min(44, (max_x - min_x) // 4, (max_y - min_y) // 4))
 
-        overlay_color = (40, 120, 255)
-        cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), overlay_color, 2)
+        tint = frame_bgr.copy()
+        cv2.rectangle(tint, (min_x, min_y), (max_x, max_y), fill_color, -1)
+        cv2.addWeighted(tint, 0.14, frame_bgr, 0.86, 0, frame_bgr)
+
+        line_thickness = 3
+        cv2.line(frame_bgr, (min_x, min_y), (min_x + corner_length, min_y), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (min_x, min_y), (min_x, min_y + corner_length), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (max_x, min_y), (max_x - corner_length, min_y), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (max_x, min_y), (max_x, min_y + corner_length), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (min_x, max_y), (min_x + corner_length, max_y), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (min_x, max_y), (min_x, max_y - corner_length), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (max_x, max_y), (max_x - corner_length, max_y), overlay_color, line_thickness)
+        cv2.line(frame_bgr, (max_x, max_y), (max_x, max_y - corner_length), overlay_color, line_thickness)
+        return overlay_color
+
+    def draw_center_label(self, frame_bgr, overlay_color):
         with self.label_lock:
             label = self.current_label
 
+        frame_height, frame_width = frame_bgr.shape[:2]
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.8
         thickness = 2
@@ -216,8 +240,33 @@ class CameraApp:
         )
         return frame_bgr
 
+    def draw_light_motion_overlay(self, frame_bgr):
+        self.frame_index += 1
+        should_analyze = self.frame_index % self.motion_analysis_stride == 0
+
+        if should_analyze:
+            detection_box = self.find_motion_box(frame_bgr)
+            if detection_box is not None:
+                self.last_detection_box = detection_box
+                self.last_motion_time = time.time()
+                min_x, min_y, max_x, max_y = detection_box
+                roi = frame_bgr[min_y:max_y, min_x:max_x]
+                self.maybe_start_classification(roi)
+
+        if (
+            self.last_detection_box is None
+            or time.time() - self.last_motion_time > self.motion_hold_seconds
+        ):
+            return frame_bgr
+
+        overlay_color = self.draw_detection_box(frame_bgr, self.last_detection_box)
+        return self.draw_center_label(frame_bgr, overlay_color)
+
     def generate_stream(self, overlay=False, color_mode=None):
         self.previous_gray = None
+        self.frame_index = 0
+        self.last_detection_box = None
+        self.last_motion_time = 0
         color_mode = color_mode or self.default_color_mode
 
         while True:
