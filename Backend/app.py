@@ -111,6 +111,7 @@ class CameraApp:
             print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
             return self.current_label
 
+
     def classify_object_in_background(self, roi):
         try:
             label = self.classify_object_with_openai(roi)
@@ -119,6 +120,7 @@ class CameraApp:
             print(f"[{time.strftime('%H:%M:%S')}] Bewegung erkannt: {label}")
         finally:
             self.classification_in_progress = False
+
 
     def maybe_start_classification(self, roi):
         current_time = time.time()
@@ -182,15 +184,35 @@ class CameraApp:
         with self.label_lock:
             label = self.current_label
 
-        label_origin_y = max(28, min_y - 10)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.8
+        thickness = 2
+        text_size, baseline = cv2.getTextSize(label, font, font_scale, thickness)
+        text_width, text_height = text_size
+        label_x = max(16, (frame_width - text_width) // 2)
+        label_y = frame_height - 34
+        box_padding_x = 14
+        box_padding_y = 10
+        box_x1 = max(8, label_x - box_padding_x)
+        box_y1 = max(8, label_y - text_height - box_padding_y)
+        box_x2 = min(frame_width - 8, label_x + text_width + box_padding_x)
+        box_y2 = min(frame_height - 8, label_y + baseline + box_padding_y)
+
+        cv2.rectangle(
+            frame_bgr,
+            (box_x1, box_y1),
+            (box_x2, box_y2),
+            (10, 18, 28),
+            -1,
+        )
         cv2.putText(
             frame_bgr,
             label,
-            (min_x, label_origin_y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.68,
+            (label_x, label_y),
+            font,
+            font_scale,
             overlay_color,
-            2,
+            thickness,
         )
         return frame_bgr
 
