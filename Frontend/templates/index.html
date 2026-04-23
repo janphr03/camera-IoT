@@ -198,6 +198,13 @@
                 box-shadow: none;
             }
 
+            .object-button {
+                margin-top: 12px;
+                min-height: 58px;
+                font-size: 1.05rem;
+                letter-spacing: -0.02em;
+            }
+
             .status-pill {
                 display: inline-flex;
                 align-items: center;
@@ -411,6 +418,7 @@
                         <p class="muted">Erkanntes Objekt</p>
                         <strong id="objectLabel">Noch kein Objekt</strong>
                         <p class="muted" id="objectTime">Warte auf Bewegung</p>
+                        <button class="object-button" id="objectButton" type="button">Noch kein Objekt</button>
                     </article>
                     <article class="info-card">
                         <p class="muted">Layout</p>
@@ -443,6 +451,7 @@
             const streamStatus = document.getElementById("streamStatus");
             const objectLabel = document.getElementById("objectLabel");
             const objectTime = document.getElementById("objectTime");
+            const objectButton = document.getElementById("objectButton");
             const colorModes = ["raw", "rgb_to_bgr", "swap_rb"];
             let colorModeIndex = 0;
 
@@ -469,6 +478,7 @@
             cameraEvents.onmessage = (event) => {
                 const payload = JSON.parse(event.data);
                 objectLabel.textContent = payload.label;
+                objectButton.textContent = payload.label;
                 objectTime.textContent = `Zuletzt erkannt um ${payload.timestamp}`;
             };
 
