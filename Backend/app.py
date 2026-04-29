@@ -256,6 +256,19 @@ class CameraApp:
                 label_counts.items(), key=lambda item: (item[1], item[0])
             )
 
+        label_stats = [
+            {
+                "label": label,
+                "count": count,
+                "percent": round((count / len(detections)) * 100)
+                if detections
+                else 0,
+            }
+            for label, count in sorted(
+                label_counts.items(), key=lambda item: (-item[1], item[0])
+            )
+        ]
+
         latest_detection = state.get("latest_detection") or {}
         alarm_events = [
             detection for detection in detections if detection.get("alarm_triggered")
@@ -269,6 +282,7 @@ class CameraApp:
             if alarm_events
             else None,
             "unique_labels": len(label_counts),
+            "label_counts": label_stats,
             "top_label": top_label or "Keine Daten",
             "top_label_count": top_label_count,
             "last_seen_at": latest_detection.get("timestamp"),

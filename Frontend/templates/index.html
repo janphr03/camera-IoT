@@ -322,6 +322,76 @@
                 line-height: 1;
             }
 
+            .analytics-details {
+                display: grid;
+                gap: 8px;
+                margin-top: 12px;
+            }
+
+            .analytics-details details {
+                border-radius: 16px;
+                border: 1px solid rgba(151, 203, 255, 0.1);
+                background: rgba(255, 255, 255, 0.045);
+                overflow: hidden;
+            }
+
+            .analytics-details summary {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                padding: 10px;
+                color: var(--text);
+                cursor: pointer;
+                font-size: 0.9rem;
+                font-weight: 900;
+                list-style: none;
+            }
+
+            .analytics-details summary::-webkit-details-marker {
+                display: none;
+            }
+
+            .analytics-details summary::after {
+                content: "+";
+                color: var(--cyan);
+                font-size: 1rem;
+            }
+
+            .analytics-details details[open] summary::after {
+                content: "-";
+            }
+
+            .breakdown-list {
+                display: grid;
+                gap: 6px;
+                padding: 0 10px 10px;
+            }
+
+            .breakdown-item {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+                align-items: center;
+                color: var(--muted);
+                font-size: 0.82rem;
+            }
+
+            .breakdown-item strong {
+                margin-top: 0;
+                overflow: hidden;
+                color: var(--text);
+                font-size: 0.86rem;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .breakdown-count {
+                color: var(--cyan);
+                font-weight: 900;
+                white-space: nowrap;
+            }
+
             .history-list {
                 display: grid;
                 gap: 8px;
@@ -714,6 +784,16 @@
                                 <strong id="uniqueLabels">0</strong>
                             </div>
                         </div>
+                        <div class="analytics-details">
+                            <details>
+                                <summary>Top Objekte ansehen</summary>
+                                <div class="breakdown-list" id="topObjectsList"></div>
+                            </details>
+                            <details>
+                                <summary>Klassen ansehen</summary>
+                                <div class="breakdown-list" id="classBreakdownList"></div>
+                            </details>
+                        </div>
                     </article>
                     <article class="info-card">
                         <div class="card-header">
@@ -787,6 +867,8 @@
             const uniqueLabels = document.getElementById("uniqueLabels");
             const historyLimit = document.getElementById("historyLimit");
             const historyList = document.getElementById("historyList");
+            const topObjectsList = document.getElementById("topObjectsList");
+            const classBreakdownList = document.getElementById("classBreakdownList");
             let settingsLoaded = false;
             let saveTimer = null;
             let alarmTimeout = null;
@@ -916,7 +998,33 @@
                 return parts.length > 1 ? parts[1].slice(0, 5) : timestamp;
             }
 
+            function updateBreakdownList(container, entries = [], limit = entries.length) {
+                container.replaceChildren();
+
+                const visibleEntries = entries.slice(0, limit);
+                if (!visibleEntries.length) {
+                    const emptyItem = document.createElement("div");
+                    emptyItem.className = "breakdown-item";
+                    emptyItem.textContent = "Keine Daten vorhanden";
+                    container.append(emptyItem);
+                    return;
+                }
+
+                for (const entry of visibleEntries) {
+                    const item = document.createElement("div");
+                    const label = document.createElement("strong");
+                    const count = document.createElement("span");
+                    item.className = "breakdown-item";
+                    count.className = "breakdown-count";
+                    label.textContent = entry.label || "Unbekannt";
+                    count.textContent = `${entry.count ?? 0}x · ${entry.percent ?? 0}%`;
+                    item.append(label, count);
+                    container.append(item);
+                }
+            }
+
             function updateAnalytics(analytics = {}) {
+                const labelCounts = analytics.label_counts || [];
                 eventsToday.textContent = analytics.events_today ?? 0;
                 eventsTotal.textContent = analytics.total_events ?? 0;
                 alarmTotal.textContent = analytics.alarm_events ?? 0;
@@ -926,6 +1034,8 @@
                     : "Keine Daten";
                 uniqueLabels.textContent = analytics.unique_labels ?? 0;
                 historyLimit.textContent = `${analytics.stored_events ?? 0}/${analytics.history_limit ?? 80}`;
+                updateBreakdownList(topObjectsList, labelCounts, 5);
+                updateBreakdownList(classBreakdownList, labelCounts);
             }
 
             function updateHistory(detections = []) {
