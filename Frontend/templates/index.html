@@ -631,19 +631,6 @@
                     <article class="control-card">
                         <div class="control-row">
                             <div>
-                                <h3>Erkennung & Rahmen</h3>
-                                <p class="muted">Markiert Bewegung und speichert Events.</p>
-                            </div>
-                            <label class="switch">
-                                <input id="overlayToggle" type="checkbox" />
-                            </label>
-                        </div>
-                        <button id="reloadButton" type="button">Stream neu verbinden</button>
-                    </article>
-
-                    <article class="control-card">
-                        <div class="control-row">
-                            <div>
                                 <h3>Reduzierte Anzeige</h3>
                                 <p class="muted">Blendet die Bild-Badges aus.</p>
                             </div>
@@ -660,17 +647,15 @@
                                 <input id="mirrorToggle" type="checkbox" />
                             </label>
                         </div>
+                        <button id="reloadButton" type="button">Stream neu verbinden</button>
                     </article>
 
                     <article class="control-card alarm-card" id="alarmCard">
                         <div class="control-row">
                             <div>
-                                <h3>Mensch-Alarm</h3>
-                                <p class="muted">Löst aus, wenn im aktiven Zeitraum ein Mensch erkannt wird.</p>
+                                <h3>Erkennungszeitraum</h3>
+                                <p class="muted">Nur in diesem Zeitraum laufen Rahmen, OpenAI-Erkennung und Mensch-Alarm.</p>
                             </div>
-                            <label class="switch">
-                                <input id="alarmToggle" type="checkbox" />
-                            </label>
                         </div>
                         <div class="range-field">
                             <div class="range-label">
@@ -688,7 +673,7 @@
                         </div>
                         <div class="alarm-summary">
                             <span id="alarmWindowText">Ganztägig aktiv</span>
-                            <strong class="alarm-state" id="alarmArmedState">Unscharf</strong>
+                            <strong class="alarm-state" id="alarmArmedState">Außerhalb</strong>
                         </div>
                     </article>
                 </section>
@@ -780,10 +765,8 @@
             const appShell = document.querySelector(".app");
             const sidebar = document.querySelector(".sidebar");
             const viewer = document.querySelector(".viewer");
-            const overlayToggle = document.getElementById("overlayToggle");
             const fitToggle = document.getElementById("fitToggle");
             const mirrorToggle = document.getElementById("mirrorToggle");
-            const alarmToggle = document.getElementById("alarmToggle");
             const alarmStartSlider = document.getElementById("alarmStartSlider");
             const alarmEndSlider = document.getElementById("alarmEndSlider");
             const alarmStartLabel = document.getElementById("alarmStartLabel");
@@ -806,28 +789,15 @@
             const historyList = document.getElementById("historyList");
             let settingsLoaded = false;
             let saveTimer = null;
-            let streamReconnectTimer = null;
             let alarmTimeout = null;
             let lastAlarmKey = null;
             let lastAlarmArmedState = null;
             let alarmAudioContext = null;
 
             function currentStreamText() {
-                const alarmArmed = isAlarmArmedLocally();
-                if (overlayToggle.checked && alarmToggle.checked) {
-                    return alarmArmed
-                        ? "Erkennung, Event-Speicherung und Mensch-Alarm aktiv."
-                        : "Erkennung aktiv, Mensch-Alarm wartet auf das Zeitfenster.";
-                }
-                if (overlayToggle.checked) {
-                    return "Erkennung und Event-Speicherung aktiv.";
-                }
-                if (alarmToggle.checked) {
-                    return alarmArmed
-                        ? "Mensch-Alarm im Hintergrund aktiv."
-                        : "Mensch-Alarm außerhalb des Zeitfensters.";
-                }
-                return "Direkter Kamerastream aktiv.";
+                return isAlarmArmedLocally()
+                    ? "Zeitfenster aktiv: Rahmen, OpenAI-Erkennung und Mensch-Alarm laufen."
+                    : "Außerhalb des Zeitfensters: nur Kamerastream, keine Erkennung.";
             }
 
             function updateStreamStatus() {
@@ -835,16 +805,9 @@
             }
 
             function reconnectStream() {
-                const overlay = overlayToggle.checked ? "1" : "0";
-                const alarm = isAlarmArmedLocally() ? "1" : "0";
-                cameraFeed.src = `/camera_feed/pi-main?overlay=${overlay}&alarm=${alarm}&ts=${Date.now()}`;
+                cameraFeed.src = `/camera_feed/pi-main?ts=${Date.now()}`;
                 lastAlarmArmedState = isAlarmArmedLocally();
                 updateStreamStatus();
-            }
-
-            function queueStreamReconnect() {
-                window.clearTimeout(streamReconnectTimer);
-                streamReconnectTimer = window.setTimeout(reconnectStream, 220);
             }
 
             function updateLocalViewOptions() {
@@ -881,12 +844,9 @@
             }
 
             function isAlarmArmedLocally() {
-                return (
-                    alarmToggle.checked &&
-                    isNowInAlarmWindow(
-                        normalizeMinutes(alarmStartSlider.value),
-                        normalizeMinutes(alarmEndSlider.value)
-                    )
+                return isNowInAlarmWindow(
+                    normalizeMinutes(alarmStartSlider.value),
+                    normalizeMinutes(alarmEndSlider.value)
                 );
             }
 
@@ -896,7 +856,7 @@
                 const armedByWindow = serverStatus
                     ? Boolean(serverStatus.window_active)
                     : isNowInAlarmWindow(startMinutes, endMinutes);
-                const armedNow = alarmToggle.checked && armedByWindow;
+                const armedNow = armedByWindow;
                 const crossesMidnight = startMinutes > endMinutes;
 
                 alarmStartLabel.textContent = formatMinutes(startMinutes);
@@ -905,11 +865,7 @@
                     startMinutes === endMinutes
                         ? "Ganztägig aktiv"
                         : `${formatMinutes(startMinutes)} bis ${formatMinutes(endMinutes)}${crossesMidnight ? " · über Mitternacht" : ""}`;
-                alarmArmedState.textContent = alarmToggle.checked
-                    ? armedNow
-                        ? "Jetzt scharf"
-                        : "Außerhalb"
-                    : "Unscharf";
+                alarmArmedState.textContent = armedNow ? "Jetzt aktiv" : "Außerhalb";
                 alarmArmedState.classList.toggle("armed", armedNow);
                 alarmCard.classList.toggle("alarm-armed", armedNow);
             }
@@ -924,11 +880,7 @@
                     return;
                 }
 
-                if (armedNow !== lastAlarmArmedState) {
-                    reconnectStream();
-                    return;
-                }
-
+                lastAlarmArmedState = armedNow;
                 updateStreamStatus();
             }
 
@@ -1084,11 +1036,11 @@
 
             function currentSettings() {
                 return {
-                    overlay: overlayToggle.checked,
+                    overlay: true,
                     fit: fitToggle.checked,
                     mirror: mirrorToggle.checked,
                     alarm: {
-                        enabled: alarmToggle.checked,
+                        enabled: true,
                         start_minutes: normalizeMinutes(alarmStartSlider.value),
                         end_minutes: normalizeMinutes(alarmEndSlider.value),
                     },
@@ -1122,10 +1074,8 @@
                     const state = await response.json();
                     const settings = state.settings || {};
                     const alarmSettings = settings.alarm || {};
-                    overlayToggle.checked = Boolean(settings.overlay);
                     fitToggle.checked = Boolean(settings.fit);
                     mirrorToggle.checked = Boolean(settings.mirror);
-                    alarmToggle.checked = Boolean(alarmSettings.enabled);
                     alarmStartSlider.value = normalizeMinutes(alarmSettings.start_minutes);
                     alarmEndSlider.value = normalizeMinutes(alarmSettings.end_minutes);
                     updateLocalViewOptions();
@@ -1140,10 +1090,6 @@
                 }
             }
 
-            overlayToggle.addEventListener("change", () => {
-                reconnectStream();
-                queueSettingsSave();
-            });
             fitToggle.addEventListener("change", () => {
                 updateLocalViewOptions();
                 queueSettingsSave();
@@ -1152,26 +1098,22 @@
                 updateLocalViewOptions();
                 queueSettingsSave();
             });
-            alarmToggle.addEventListener("change", () => {
-                if (alarmToggle.checked) {
-                    unlockAlarmAudio();
-                }
-                updateAlarmControls();
-                reconnectStream();
-                queueSettingsSave();
-            });
             alarmStartSlider.addEventListener("input", () => {
+                unlockAlarmAudio();
                 updateAlarmControls();
                 queueSettingsSave();
-                queueStreamReconnect();
             });
             alarmEndSlider.addEventListener("input", () => {
+                unlockAlarmAudio();
                 updateAlarmControls();
                 queueSettingsSave();
-                queueStreamReconnect();
             });
-            reloadButton.addEventListener("click", reconnectStream);
+            reloadButton.addEventListener("click", () => {
+                unlockAlarmAudio();
+                reconnectStream();
+            });
             window.addEventListener("resize", fitViewerToViewport, { passive: true });
+            document.addEventListener("pointerdown", unlockAlarmAudio, { once: true });
             window.setInterval(refreshAlarmClock, 60000);
             if ("ResizeObserver" in window) {
                 new ResizeObserver(fitViewerToViewport).observe(appShell);

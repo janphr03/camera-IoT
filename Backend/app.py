@@ -96,7 +96,7 @@ class CameraApp:
             "fit": False,
             "mirror": False,
             "alarm": {
-                "enabled": False,
+                "enabled": True,
                 "start_minutes": 0,
                 "end_minutes": 0,
             },
@@ -114,8 +114,7 @@ class CameraApp:
         if not isinstance(alarm_settings, dict):
             return normalized
 
-        if "enabled" in alarm_settings:
-            normalized["enabled"] = bool(alarm_settings["enabled"])
+        normalized["enabled"] = True
         if "start_minutes" in alarm_settings:
             normalized["start_minutes"] = self.normalize_minutes(
                 alarm_settings["start_minutes"], normalized["start_minutes"]
@@ -149,7 +148,7 @@ class CameraApp:
         alarm_updates = updates.get("alarm")
         if isinstance(alarm_updates, dict):
             merged_alarm = copy.deepcopy(merged["alarm"])
-            for key in ("enabled", "start_minutes", "end_minutes"):
+            for key in ("start_minutes", "end_minutes"):
                 if key in alarm_updates:
                     merged_alarm[key] = alarm_updates[key]
             merged["alarm"] = self.normalize_alarm_settings(merged_alarm)
@@ -296,12 +295,11 @@ class CameraApp:
         alarm_settings = self.normalize_alarm_settings(
             (settings or {}).get("alarm") if isinstance(settings, dict) else None
         )
-        enabled = bool(alarm_settings.get("enabled"))
         window_active = self.is_in_alarm_window(alarm_settings)
         return {
-            "enabled": enabled,
+            "enabled": True,
             "window_active": window_active,
-            "armed_now": enabled and window_active,
+            "armed_now": window_active,
         }
 
     def should_trigger_alarm(self, label, settings, current_time=None):
@@ -309,10 +307,14 @@ class CameraApp:
             (settings or {}).get("alarm") if isinstance(settings, dict) else None
         )
         return (
-            bool(alarm_settings.get("enabled"))
-            and self.is_alarm_label(label)
+            self.is_alarm_label(label)
             and self.is_in_alarm_window(alarm_settings, current_time)
         )
+
+    def is_detection_schedule_active(self):
+        with self.state_lock:
+            status = self.alarm_status(self.state.get("settings", {}))
+        return status["armed_now"]
 
     def state_response_unlocked(self):
         state = copy.deepcopy(self.state)
@@ -465,6 +467,8 @@ class CameraApp:
     def classify_object_in_background(self, context_roi, detection_box):
         try:
             label = self.classify_object_with_openai(context_roi)
+            if not self.is_detection_schedule_active():
+                return
             detection, state = self.persist_detection(label, detection_box)
             with self.label_lock:
                 self.current_label = detection["label"]
@@ -600,18 +604,33 @@ class CameraApp:
             self.draw_detection_box(frame_bgr, self.last_detection_box)
         return frame_bgr
 
-    def generate_stream(self, overlay=False, alarm=False):
+    def reset_motion_tracking(self):
         self.previous_gray = None
         self.frame_index = 0
         self.last_detection_box = None
         self.last_motion_time = 0
 
+    def generate_stream(self):
+        self.reset_motion_tracking()
+        last_schedule_check = 0
+        last_detection_active = None
+        detection_active = False
+
         while True:
             frame = self.picam2.capture_array()
             frame_bgr = frame
 
-            if overlay or alarm:
-                frame_bgr = self.analyze_motion_frame(frame_bgr, draw_overlay=overlay)
+            current_time = time.time()
+            if current_time - last_schedule_check >= 1:
+                last_schedule_check = current_time
+                detection_active = self.is_detection_schedule_active()
+
+            if detection_active != last_detection_active:
+                self.reset_motion_tracking()
+                last_detection_active = detection_active
+
+            if detection_active:
+                frame_bgr = self.analyze_motion_frame(frame_bgr, draw_overlay=True)
 
             frame_bytes = self.encode_frame(frame_bgr)
             if frame_bytes is None:
@@ -626,10 +645,8 @@ class CameraApp:
         if camera_id != "pi-main":
             return jsonify({"error": "Kamera nicht gefunden."}), 404
 
-        overlay = request.args.get("overlay", "0") == "1"
-        alarm = request.args.get("alarm", "0") == "1"
         return Response(
-            self.generate_stream(overlay=overlay, alarm=alarm),
+            self.generate_stream(),
             mimetype="multipart/x-mixed-replace; boundary=frame",
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
