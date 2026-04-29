@@ -28,12 +28,12 @@
             html,
             body {
                 width: 100%;
-                height: 100%;
+                min-height: 100%;
             }
 
             body {
                 margin: 0;
-                overflow: hidden;
+                overflow: auto;
                 color: var(--text);
                 font-family: ui-sans-serif, "Avenir Next", "Segoe UI", sans-serif;
                 background:
@@ -44,11 +44,12 @@
 
             .app {
                 width: min(1500px, calc(100% - 24px));
-                height: calc(100% - 24px);
+                min-height: calc(100vh - 24px);
                 margin: 12px auto;
                 display: grid;
                 grid-template-columns: 330px minmax(0, 1fr);
                 gap: 14px;
+                align-items: start;
             }
 
             .sidebar,
@@ -65,10 +66,14 @@
                 flex-direction: column;
                 gap: 18px;
                 backdrop-filter: blur(18px);
+                overflow: auto;
             }
 
             .viewer {
-                position: relative;
+                position: sticky;
+                top: 12px;
+                height: calc(100vh - 24px);
+                min-height: 520px;
                 overflow: hidden;
                 border-radius: 32px;
                 background: #020914;
@@ -235,17 +240,77 @@
                 color: var(--text);
             }
 
+            .card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .metric-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-top: 12px;
+            }
+
+            .metric {
+                min-width: 0;
+                padding: 10px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.045);
+                border: 1px solid rgba(151, 203, 255, 0.1);
+            }
+
+            .metric strong {
+                margin-top: 4px;
+                font-size: 1.2rem;
+                line-height: 1;
+            }
+
+            .history-list {
+                display: grid;
+                gap: 8px;
+                max-height: 176px;
+                margin-top: 12px;
+                overflow: auto;
+            }
+
+            .history-item {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+                align-items: center;
+                padding: 10px;
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.045);
+                border: 1px solid rgba(151, 203, 255, 0.1);
+            }
+
+            .history-item strong {
+                margin-top: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .history-time {
+                color: var(--muted);
+                font-size: 0.78rem;
+                white-space: nowrap;
+            }
+
             #cameraFeed {
                 width: 100%;
                 height: 100%;
                 display: block;
-                object-fit: contain;
-                object-position: right center;
+                object-fit: cover;
+                object-position: center center;
                 background: #020914;
             }
 
-            #cameraFeed.fill-frame {
-                object-fit: cover;
+            #cameraFeed.show-full-frame {
+                object-fit: contain;
                 object-position: center center;
             }
 
@@ -373,7 +438,6 @@
                 }
 
                 .app {
-                    height: auto;
                     min-height: calc(100% - 18px);
                     width: calc(100% - 16px);
                     margin: 8px auto;
@@ -381,6 +445,9 @@
                 }
 
                 .viewer {
+                    position: relative;
+                    top: auto;
+                    height: auto;
                     min-height: 58vh;
                 }
             }
@@ -430,8 +497,8 @@
                     <article class="control-card">
                         <div class="control-row">
                             <div>
-                                <h3>Bewegungsrahmen</h3>
-                                <p class="muted">Objektlabel + Box nur bei Bedarf.</p>
+                                <h3>Erkennung</h3>
+                                <p class="muted">Speichert Events und zeigt die Box.</p>
                             </div>
                             <label class="switch">
                                 <input id="overlayToggle" type="checkbox" />
@@ -443,8 +510,8 @@
                     <article class="control-card">
                         <div class="control-row">
                             <div>
-                                <h3>Bild fuellen</h3>
-                                <p class="muted">Fuellt den Viewer, kann aber zuschneiden.</p>
+                                <h3>Ganzes Bild</h3>
+                                <p class="muted">Optional mit Balken statt Cropping.</p>
                             </div>
                             <label class="switch">
                                 <input id="fitToggle" type="checkbox" />
@@ -469,8 +536,28 @@
                         <span id="streamStatus">Direkter MJPEG-Stream aktiv.</span>
                     </div>
                     <article class="info-card">
-                        <p class="muted">Requests</p>
-                        <strong>1 Stream, kein Polling</strong>
+                        <div class="card-header">
+                            <p class="muted">Auswertung</p>
+                            <span class="history-time" id="historyLimit">0/80</span>
+                        </div>
+                        <div class="metric-grid">
+                            <div class="metric">
+                                <p class="muted">Heute</p>
+                                <strong id="eventsToday">0</strong>
+                            </div>
+                            <div class="metric">
+                                <p class="muted">Gesamt</p>
+                                <strong id="eventsTotal">0</strong>
+                            </div>
+                            <div class="metric">
+                                <p class="muted">Top Objekt</p>
+                                <strong id="topObject">Keine Daten</strong>
+                            </div>
+                            <div class="metric">
+                                <p class="muted">Klassen</p>
+                                <strong id="uniqueLabels">0</strong>
+                            </div>
+                        </div>
                     </article>
                     <article class="info-card object-card">
                         <p class="muted">Erkanntes Objekt</p>
@@ -479,8 +566,16 @@
                         <button class="object-button" id="objectButton" type="button">Noch kein Objekt</button>
                     </article>
                     <article class="info-card">
-                        <p class="muted">Layout</p>
-                        <strong>Bild rechts buendig</strong>
+                        <div class="card-header">
+                            <p class="muted">Event-Historie</p>
+                            <span class="history-time">letzte 20</span>
+                        </div>
+                        <div class="history-list" id="historyList">
+                            <div class="history-item">
+                                <strong>Keine Events gespeichert</strong>
+                                <span class="history-time">--:--</span>
+                            </div>
+                        </div>
                     </article>
                 </section>
             </aside>
@@ -506,7 +601,7 @@
                 <div class="focus-ring"></div>
 
                 <div class="viewer-bottom">
-                    <span class="viewer-badge">Stream bleibt unvergroessert, rechts ausgerichtet.</span>
+                    <span class="viewer-badge">Randloser Stream, Bild wird bei Bedarf beschnitten.</span>
                 </div>
             </section>
         </main>
@@ -523,6 +618,12 @@
             const objectTime = document.getElementById("objectTime");
             const objectButton = document.getElementById("objectButton");
             const viewerObjectLabel = document.getElementById("viewerObjectLabel");
+            const eventsToday = document.getElementById("eventsToday");
+            const eventsTotal = document.getElementById("eventsTotal");
+            const topObject = document.getElementById("topObject");
+            const uniqueLabels = document.getElementById("uniqueLabels");
+            const historyLimit = document.getElementById("historyLimit");
+            const historyList = document.getElementById("historyList");
             let settingsLoaded = false;
             let saveTimer = null;
 
@@ -536,7 +637,7 @@
             }
 
             function updateLocalViewOptions() {
-                cameraFeed.classList.toggle("fill-frame", fitToggle.checked);
+                cameraFeed.classList.toggle("show-full-frame", fitToggle.checked);
                 cameraFeed.classList.toggle("mirrored", mirrorToggle.checked);
             }
 
@@ -548,6 +649,57 @@
                 objectTime.textContent = timestamp
                     ? `Zuletzt erkannt um ${timestamp}`
                     : "Warte auf Bewegung";
+            }
+
+            function formatTime(timestamp) {
+                if (!timestamp) {
+                    return "--:--";
+                }
+
+                const parts = timestamp.split(" ");
+                return parts.length > 1 ? parts[1].slice(0, 5) : timestamp;
+            }
+
+            function updateAnalytics(analytics = {}) {
+                eventsToday.textContent = analytics.events_today ?? 0;
+                eventsTotal.textContent = analytics.total_events ?? 0;
+                topObject.textContent = analytics.top_label_count
+                    ? `${analytics.top_label} (${analytics.top_label_count})`
+                    : "Keine Daten";
+                uniqueLabels.textContent = analytics.unique_labels ?? 0;
+                historyLimit.textContent = `${analytics.stored_events ?? 0}/${analytics.history_limit ?? 80}`;
+            }
+
+            function updateHistory(detections = []) {
+                historyList.replaceChildren();
+
+                if (!detections.length) {
+                    const emptyItem = document.createElement("div");
+                    emptyItem.className = "history-item";
+                    emptyItem.innerHTML = `<strong>Keine Events gespeichert</strong><span class="history-time">--:--</span>`;
+                    historyList.append(emptyItem);
+                    return;
+                }
+
+                for (const detection of detections) {
+                    const item = document.createElement("div");
+                    const label = document.createElement("strong");
+                    const timestamp = document.createElement("span");
+                    item.className = "history-item";
+                    timestamp.className = "history-time";
+                    label.textContent = detection.label || "Unbekanntes Objekt";
+                    timestamp.textContent = formatTime(detection.timestamp);
+                    item.append(label, timestamp);
+                    historyList.append(item);
+                }
+            }
+
+            function applyState(state) {
+                updateAnalytics(state.analytics || {});
+                updateHistory(state.recent_detections || []);
+
+                const latestDetection = state.latest_detection || {};
+                updateObjectDisplay(latestDetection.label, latestDetection.timestamp);
             }
 
             function currentSettings() {
@@ -589,8 +741,7 @@
                     mirrorToggle.checked = Boolean(settings.mirror);
                     updateLocalViewOptions();
 
-                    const latestDetection = state.latest_detection || {};
-                    updateObjectDisplay(latestDetection.label, latestDetection.timestamp);
+                    applyState(state);
                 } catch (error) {
                     objectTime.textContent = "Gespeicherte Daten konnten nicht geladen werden";
                 } finally {
@@ -627,7 +778,10 @@
             const cameraEvents = new EventSource("/camera_events");
             cameraEvents.onmessage = (event) => {
                 const payload = JSON.parse(event.data);
-                updateObjectDisplay(payload.label, payload.timestamp);
+                const detection = payload.detection || {};
+                updateObjectDisplay(detection.label, detection.timestamp);
+                updateAnalytics(payload.analytics || {});
+                updateHistory(payload.recent_detections || []);
             };
 
             cameraEvents.onerror = () => {

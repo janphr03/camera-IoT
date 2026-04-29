@@ -16,6 +16,7 @@ from picamera2 import Picamera2
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATE_FILE = PROJECT_ROOT / "Backend" / "app_state.json"
+MAX_DETECTIONS = 80
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -86,6 +87,9 @@ class CameraApp:
                 "timestamp": None,
             },
             "detections": [],
+            "event_counter": 0,
+            "events_today": 0,
+            "events_today_date": time.strftime("%Y-%m-%d"),
         }
 
     def normalize_state(self, data):
@@ -98,32 +102,115 @@ class CameraApp:
             for key in state["settings"]:
                 state["settings"][key] = bool(settings.get(key, state["settings"][key]))
 
-        latest_detection = data.get("latest_detection")
-        if isinstance(latest_detection, dict):
-            label = latest_detection.get("label")
-            timestamp = latest_detection.get("timestamp")
-            if isinstance(label, str) and label.strip():
-                state["latest_detection"]["label"] = label.strip()
-            if isinstance(timestamp, str) and timestamp.strip():
-                state["latest_detection"]["timestamp"] = timestamp.strip()
-
         detections = data.get("detections")
         if isinstance(detections, list):
             clean_detections = []
-            for detection in detections[-50:]:
-                if not isinstance(detection, dict):
-                    continue
-                label = detection.get("label")
-                timestamp = detection.get("timestamp")
-                if isinstance(label, str) and label.strip():
-                    clean_detections.append(
-                        {
-                            "label": label.strip(),
-                            "timestamp": timestamp if isinstance(timestamp, str) else None,
-                        }
-                    )
+            for detection in detections[-MAX_DETECTIONS:]:
+                normalized_detection = self.normalize_detection(detection)
+                if normalized_detection is not None:
+                    clean_detections.append(normalized_detection)
             state["detections"] = clean_detections
 
+        event_counter = data.get("event_counter")
+        if isinstance(event_counter, int) and event_counter >= 0:
+            state["event_counter"] = max(event_counter, len(state["detections"]))
+        else:
+            state["event_counter"] = len(state["detections"])
+
+        today = time.strftime("%Y-%m-%d")
+        events_today = data.get("events_today")
+        events_today_date = data.get("events_today_date")
+        if (
+            isinstance(events_today, int)
+            and events_today >= 0
+            and events_today_date == today
+        ):
+            state["events_today"] = events_today
+            state["events_today_date"] = today
+        else:
+            state["events_today"] = sum(
+                1
+                for detection in state["detections"]
+                if (detection.get("timestamp") or "").startswith(today)
+            )
+            state["events_today_date"] = today
+
+        latest_detection = self.normalize_detection(data.get("latest_detection"))
+        if latest_detection is not None:
+            state["latest_detection"] = latest_detection
+        elif state["detections"]:
+            state["latest_detection"] = state["detections"][-1]
+
+        return state
+
+    def normalize_detection(self, detection):
+        if not isinstance(detection, dict):
+            return None
+
+        label = detection.get("label")
+        if not isinstance(label, str) or not label.strip():
+            return None
+
+        timestamp = detection.get("timestamp")
+        timestamp = timestamp.strip() if isinstance(timestamp, str) else None
+
+        normalized = {
+            "id": detection.get("id") if isinstance(detection.get("id"), int) else 0,
+            "label": label.strip()[:80],
+            "timestamp": timestamp,
+            "camera_id": detection.get("camera_id") or "pi-main",
+        }
+
+        box = detection.get("box")
+        if isinstance(box, dict):
+            try:
+                x = int(box.get("x", 0))
+                y = int(box.get("y", 0))
+                width = max(0, int(box.get("width", 0)))
+                height = max(0, int(box.get("height", 0)))
+            except (TypeError, ValueError):
+                x = y = width = height = 0
+            normalized["box"] = {
+                "x": max(0, x),
+                "y": max(0, y),
+                "width": width,
+                "height": height,
+                "area": width * height,
+            }
+
+        return normalized
+
+    def summarize_state(self, state):
+        detections = state.get("detections", [])
+        label_counts = {}
+
+        for detection in detections:
+            label = detection.get("label") or "Unbekannt"
+            label_counts[label] = label_counts.get(label, 0) + 1
+
+        top_label = None
+        top_label_count = 0
+        if label_counts:
+            top_label, top_label_count = max(
+                label_counts.items(), key=lambda item: (item[1], item[0])
+            )
+
+        latest_detection = state.get("latest_detection") or {}
+        return {
+            "total_events": state.get("event_counter", len(detections)),
+            "stored_events": len(detections),
+            "events_today": state.get("events_today", 0),
+            "unique_labels": len(label_counts),
+            "top_label": top_label or "Keine Daten",
+            "top_label_count": top_label_count,
+            "last_seen_at": latest_detection.get("timestamp"),
+            "history_limit": MAX_DETECTIONS,
+        }
+
+    def state_response_unlocked(self):
+        state = copy.deepcopy(self.state)
+        state["analytics"] = self.summarize_state(state)
+        state["recent_detections"] = state.get("detections", [])[-20:][::-1]
         return state
 
     def write_state_unlocked(self, state):
@@ -151,7 +238,7 @@ class CameraApp:
     def app_state(self):
         if request.method == "GET":
             with self.state_lock:
-                state = copy.deepcopy(self.state)
+                state = self.state_response_unlocked()
             return jsonify(state)
 
         payload = request.get_json(silent=True) or {}
@@ -165,23 +252,46 @@ class CameraApp:
 
             self.state = state
             self.write_state_unlocked(self.state)
-            response_state = copy.deepcopy(self.state)
+            response_state = self.state_response_unlocked()
 
         return jsonify(response_state)
 
-    def persist_detection(self, label):
+    def persist_detection(self, label, detection_box=None):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        detection = {"label": label, "timestamp": timestamp}
+        detection = {
+            "id": int(time.time() * 1000),
+            "label": label,
+            "timestamp": timestamp,
+            "camera_id": "pi-main",
+        }
+        if detection_box is not None:
+            min_x, min_y, max_x, max_y = detection_box
+            width = max(0, max_x - min_x)
+            height = max(0, max_y - min_y)
+            detection["box"] = {
+                "x": min_x,
+                "y": min_y,
+                "width": width,
+                "height": height,
+                "area": width * height,
+            }
 
         with self.state_lock:
             state = self.normalize_state(self.state)
+            today = time.strftime("%Y-%m-%d")
+            if state.get("events_today_date") != today:
+                state["events_today"] = 0
+                state["events_today_date"] = today
             state["latest_detection"] = detection
             state["detections"].append(detection)
-            state["detections"] = state["detections"][-50:]
+            state["detections"] = state["detections"][-MAX_DETECTIONS:]
+            state["event_counter"] += 1
+            state["events_today"] += 1
             self.state = state
             self.write_state_unlocked(self.state)
+            response_state = self.state_response_unlocked()
 
-        return timestamp
+        return detection, response_state
 
     def index(self):
         return render_template("index.html")
@@ -241,19 +351,24 @@ class CameraApp:
             print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
             return self.current_label
 
-    def classify_object_in_background(self, roi):
+    def classify_object_in_background(self, roi, detection_box):
         try:
             label = self.classify_object_with_openai(roi)
-            timestamp = self.persist_detection(label)
+            detection, state = self.persist_detection(label, detection_box)
             with self.label_lock:
-                self.current_label = label
-                self.current_detection_timestamp = timestamp
+                self.current_label = detection["label"]
+                self.current_detection_timestamp = detection["timestamp"]
+                self.current_detection_payload = {
+                    "detection": detection,
+                    "analytics": state["analytics"],
+                    "recent_detections": state["recent_detections"],
+                }
                 self.label_event.set()
             print(f"[{time.strftime('%H:%M:%S')}] Bewegung erkannt: {label}")
         finally:
             self.classification_in_progress = False
 
-    def maybe_start_classification(self, roi):
+    def maybe_start_classification(self, roi, detection_box):
         current_time = time.time()
         if self.classification_in_progress:
             return
@@ -265,7 +380,7 @@ class CameraApp:
         self.classification_in_progress = True
         thread = threading.Thread(
             target=self.classify_object_in_background,
-            args=(roi.copy(),),
+            args=(roi.copy(), detection_box),
             daemon=True,
         )
         thread.start()
@@ -342,7 +457,7 @@ class CameraApp:
                 self.last_motion_time = time.time()
                 min_x, min_y, max_x, max_y = detection_box
                 roi = frame_bgr[min_y:max_y, min_x:max_x]
-                self.maybe_start_classification(roi)
+                self.maybe_start_classification(roi, detection_box)
 
         if (
             self.last_detection_box is None
@@ -402,6 +517,7 @@ class CameraApp:
                 timestamp = self.current_detection_timestamp or time.strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
+                detection_payload = getattr(self, "current_detection_payload", None)
 
             current_detection = (label, timestamp)
             if current_detection == last_sent_detection:
@@ -409,9 +525,10 @@ class CameraApp:
                 continue
 
             last_sent_detection = current_detection
-            payload = {
-                "label": label,
-                "timestamp": timestamp,
+            payload = detection_payload or {
+                "detection": {"label": label, "timestamp": timestamp},
+                "analytics": {},
+                "recent_detections": [],
             }
             yield f"data: {json.dumps(payload)}\n\n"
 
