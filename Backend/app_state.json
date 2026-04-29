@@ -1,0 +1,12 @@
+{
+  "settings": {
+    "overlay": false,
+    "fit": false,
+    "mirror": false
+  },
+  "latest_detection": {
+    "label": "Noch kein Objekt",
+    "timestamp": null
+  },
+  "detections": []
+}

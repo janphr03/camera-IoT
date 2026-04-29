@@ -486,7 +486,12 @@
             </aside>
 
             <section class="viewer">
-                <img id="cameraFeed" src="/camera_feed/pi-main?overlay=0" alt="Kamera Livebild" />
+                <img
+                    id="cameraFeed"
+                    src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="
+                    alt="Kamera Livebild"
+                    fetchpriority="high"
+                />
 
                 <div class="viewer-top">
                     <span class="viewer-badge">Pi Camera · 640 x 480</span>
@@ -518,6 +523,8 @@
             const objectTime = document.getElementById("objectTime");
             const objectButton = document.getElementById("objectButton");
             const viewerObjectLabel = document.getElementById("viewerObjectLabel");
+            let settingsLoaded = false;
+            let saveTimer = null;
 
             function reconnectStream() {
                 const overlay = overlayToggle.checked ? "1" : "0";
@@ -533,6 +540,65 @@
                 cameraFeed.classList.toggle("mirrored", mirrorToggle.checked);
             }
 
+            function updateObjectDisplay(label, timestamp) {
+                const cleanLabel = label || "Noch kein Objekt";
+                objectLabel.textContent = cleanLabel;
+                objectButton.textContent = cleanLabel;
+                viewerObjectLabel.textContent = cleanLabel;
+                objectTime.textContent = timestamp
+                    ? `Zuletzt erkannt um ${timestamp}`
+                    : "Warte auf Bewegung";
+            }
+
+            function currentSettings() {
+                return {
+                    overlay: overlayToggle.checked,
+                    fit: fitToggle.checked,
+                    mirror: mirrorToggle.checked,
+                };
+            }
+
+            function queueSettingsSave() {
+                if (!settingsLoaded) {
+                    return;
+                }
+
+                window.clearTimeout(saveTimer);
+                saveTimer = window.setTimeout(() => {
+                    fetch("/app_state", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ settings: currentSettings() }),
+                    }).catch(() => {
+                        streamStatus.textContent = "Einstellungen konnten nicht gespeichert werden.";
+                    });
+                }, 180);
+            }
+
+            async function loadAppState() {
+                try {
+                    const response = await fetch("/app_state", { cache: "no-store" });
+                    if (!response.ok) {
+                        throw new Error("State konnte nicht geladen werden");
+                    }
+
+                    const state = await response.json();
+                    const settings = state.settings || {};
+                    overlayToggle.checked = Boolean(settings.overlay);
+                    fitToggle.checked = Boolean(settings.fit);
+                    mirrorToggle.checked = Boolean(settings.mirror);
+                    updateLocalViewOptions();
+
+                    const latestDetection = state.latest_detection || {};
+                    updateObjectDisplay(latestDetection.label, latestDetection.timestamp);
+                } catch (error) {
+                    objectTime.textContent = "Gespeicherte Daten konnten nicht geladen werden";
+                } finally {
+                    settingsLoaded = true;
+                    reconnectStream();
+                }
+            }
+
             function openFullscreen() {
                 const viewer = document.querySelector(".viewer");
                 if (document.fullscreenElement) {
@@ -543,24 +609,32 @@
                 viewer.requestFullscreen();
             }
 
-            overlayToggle.addEventListener("change", reconnectStream);
-            fitToggle.addEventListener("change", updateLocalViewOptions);
-            mirrorToggle.addEventListener("change", updateLocalViewOptions);
+            overlayToggle.addEventListener("change", () => {
+                reconnectStream();
+                queueSettingsSave();
+            });
+            fitToggle.addEventListener("change", () => {
+                updateLocalViewOptions();
+                queueSettingsSave();
+            });
+            mirrorToggle.addEventListener("change", () => {
+                updateLocalViewOptions();
+                queueSettingsSave();
+            });
             fullscreenButton.addEventListener("click", openFullscreen);
             reloadButton.addEventListener("click", reconnectStream);
 
             const cameraEvents = new EventSource("/camera_events");
             cameraEvents.onmessage = (event) => {
                 const payload = JSON.parse(event.data);
-                objectLabel.textContent = payload.label;
-                objectButton.textContent = payload.label;
-                viewerObjectLabel.textContent = payload.label;
-                objectTime.textContent = `Zuletzt erkannt um ${payload.timestamp}`;
+                updateObjectDisplay(payload.label, payload.timestamp);
             };
 
             cameraEvents.onerror = () => {
                 objectTime.textContent = "Objekt-Events momentan nicht verbunden";
             };
+
+            loadAppState();
         </script>
     </body>
 </html>

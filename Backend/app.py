@@ -1,5 +1,6 @@
 from pathlib import Path
 import base64
+import copy
 import json
 import os
 import threading
@@ -14,6 +15,7 @@ from picamera2 import Picamera2
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+STATE_FILE = PROJECT_ROOT / "Backend" / "app_state.json"
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -29,6 +31,14 @@ class CameraApp:
             "/camera_feed/<camera_id>", "camera_feed", self.camera_feed
         )
         self.app.add_url_rule("/camera_events", "camera_events", self.camera_events)
+        self.app.add_url_rule(
+            "/app_state", "app_state", self.app_state, methods=["GET", "POST"]
+        )
+
+        self.state_file = STATE_FILE
+        self.state_lock = threading.Lock()
+        self.state = self.load_state()
+        latest_detection = self.state.get("latest_detection", {})
 
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
@@ -41,6 +51,13 @@ class CameraApp:
         time.sleep(1)
 
         self.jpeg_quality = 58
+        self.jpeg_encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
+        self.classification_jpeg_quality = 60
+        self.classification_encode_params = [
+            int(cv2.IMWRITE_JPEG_QUALITY),
+            self.classification_jpeg_quality,
+        ]
+        self.classification_max_side = 320
         self.min_area = 650
         self.padding = 20
         self.previous_gray = None
@@ -51,18 +68,126 @@ class CameraApp:
         self.motion_hold_seconds = 0.55
         self.classification_interval = 5
         self.last_classification_time = 0
-        self.current_label = "Noch kein Objekt"
+        self.current_label = latest_detection.get("label") or "Noch kein Objekt"
+        self.current_detection_timestamp = latest_detection.get("timestamp")
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
         self.label_event = threading.Event()
+
+    def default_state(self):
+        return {
+            "settings": {
+                "overlay": False,
+                "fit": False,
+                "mirror": False,
+            },
+            "latest_detection": {
+                "label": "Noch kein Objekt",
+                "timestamp": None,
+            },
+            "detections": [],
+        }
+
+    def normalize_state(self, data):
+        state = self.default_state()
+        if not isinstance(data, dict):
+            return state
+
+        settings = data.get("settings")
+        if isinstance(settings, dict):
+            for key in state["settings"]:
+                state["settings"][key] = bool(settings.get(key, state["settings"][key]))
+
+        latest_detection = data.get("latest_detection")
+        if isinstance(latest_detection, dict):
+            label = latest_detection.get("label")
+            timestamp = latest_detection.get("timestamp")
+            if isinstance(label, str) and label.strip():
+                state["latest_detection"]["label"] = label.strip()
+            if isinstance(timestamp, str) and timestamp.strip():
+                state["latest_detection"]["timestamp"] = timestamp.strip()
+
+        detections = data.get("detections")
+        if isinstance(detections, list):
+            clean_detections = []
+            for detection in detections[-50:]:
+                if not isinstance(detection, dict):
+                    continue
+                label = detection.get("label")
+                timestamp = detection.get("timestamp")
+                if isinstance(label, str) and label.strip():
+                    clean_detections.append(
+                        {
+                            "label": label.strip(),
+                            "timestamp": timestamp if isinstance(timestamp, str) else None,
+                        }
+                    )
+            state["detections"] = clean_detections
+
+        return state
+
+    def write_state_unlocked(self, state):
+        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = self.state_file.with_suffix(".json.tmp")
+        with temp_file.open("w", encoding="utf-8") as file:
+            json.dump(state, file, ensure_ascii=False, indent=2)
+            file.write("\n")
+        temp_file.replace(self.state_file)
+
+    def load_state(self):
+        if not self.state_file.exists():
+            state = self.default_state()
+            self.write_state_unlocked(state)
+            return state
+
+        try:
+            with self.state_file.open("r", encoding="utf-8") as file:
+                return self.normalize_state(json.load(file))
+        except (OSError, json.JSONDecodeError):
+            state = self.default_state()
+            self.write_state_unlocked(state)
+            return state
+
+    def app_state(self):
+        if request.method == "GET":
+            with self.state_lock:
+                state = copy.deepcopy(self.state)
+            return jsonify(state)
+
+        payload = request.get_json(silent=True) or {}
+        with self.state_lock:
+            state = self.normalize_state(self.state)
+            settings = payload.get("settings")
+            if isinstance(settings, dict):
+                for key in state["settings"]:
+                    if key in settings:
+                        state["settings"][key] = bool(settings[key])
+
+            self.state = state
+            self.write_state_unlocked(self.state)
+            response_state = copy.deepcopy(self.state)
+
+        return jsonify(response_state)
+
+    def persist_detection(self, label):
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        detection = {"label": label, "timestamp": timestamp}
+
+        with self.state_lock:
+            state = self.normalize_state(self.state)
+            state["latest_detection"] = detection
+            state["detections"].append(detection)
+            state["detections"] = state["detections"][-50:]
+            self.state = state
+            self.write_state_unlocked(self.state)
+
+        return timestamp
 
     def index(self):
         return render_template("index.html")
 
     def encode_frame(self, frame_bgr):
-        ok, buffer = cv2.imencode(
-            ".jpg", frame_bgr, [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
-        )
+        ok, buffer = cv2.imencode(".jpg", frame_bgr, self.jpeg_encode_params)
         return buffer.tobytes() if ok else None
 
     def classify_object_with_openai(self, roi):
@@ -70,7 +195,17 @@ class CameraApp:
             return "OpenAI API-Key fehlt"
 
         roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
-        ok, buffer = cv2.imencode(".jpg", roi_rgb)
+        height, width = roi_rgb.shape[:2]
+        largest_side = max(height, width)
+        if largest_side > self.classification_max_side:
+            scale = self.classification_max_side / largest_side
+            roi_rgb = cv2.resize(
+                roi_rgb,
+                (max(1, int(width * scale)), max(1, int(height * scale))),
+                interpolation=cv2.INTER_AREA,
+            )
+
+        ok, buffer = cv2.imencode(".jpg", roi_rgb, self.classification_encode_params)
         if not ok:
             return self.current_label
 
@@ -106,17 +241,17 @@ class CameraApp:
             print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
             return self.current_label
 
-
     def classify_object_in_background(self, roi):
         try:
             label = self.classify_object_with_openai(roi)
+            timestamp = self.persist_detection(label)
             with self.label_lock:
                 self.current_label = label
+                self.current_detection_timestamp = timestamp
                 self.label_event.set()
             print(f"[{time.strftime('%H:%M:%S')}] Bewegung erkannt: {label}")
         finally:
             self.classification_in_progress = False
-
 
     def maybe_start_classification(self, roi):
         current_time = time.time()
@@ -146,23 +281,23 @@ class CameraApp:
         frame_delta = cv2.absdiff(self.previous_gray, gray)
         _, thresh = cv2.threshold(frame_delta, 20, 255, cv2.THRESH_BINARY)
         thresh = cv2.dilate(thresh, None, iterations=3)
+        self.previous_gray = gray
+
         contours, _ = cv2.findContours(
             thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
+        largest_contour = None
+        largest_area = self.min_area
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area >= largest_area:
+                largest_area = area
+                largest_contour = contour
 
-        relevant_contours = [
-            contour
-            for contour in contours
-            if cv2.contourArea(contour) >= self.min_area
-        ]
-
-        self.previous_gray = gray
-
-        if not relevant_contours:
+        if largest_contour is None:
             return None
 
         frame_height, frame_width = frame_bgr.shape[:2]
-        largest_contour = max(relevant_contours, key=cv2.contourArea)
         min_x, min_y, width, height = cv2.boundingRect(largest_contour)
         max_x = min_x + width
         max_y = min_y + height
@@ -179,9 +314,11 @@ class CameraApp:
         fill_color = (70, 40, 8)
         corner_length = max(18, min(44, (max_x - min_x) // 4, (max_y - min_y) // 4))
 
-        tint = frame_bgr.copy()
-        cv2.rectangle(tint, (min_x, min_y), (max_x, max_y), fill_color, -1)
-        cv2.addWeighted(tint, 0.14, frame_bgr, 0.86, 0, frame_bgr)
+        roi = frame_bgr[min_y:max_y, min_x:max_x]
+        if roi.size:
+            tint = roi.copy()
+            tint[:] = fill_color
+            cv2.addWeighted(tint, 0.14, roi, 0.86, 0, roi)
 
         line_thickness = 3
         cv2.line(frame_bgr, (min_x, min_y), (min_x + corner_length, min_y), overlay_color, line_thickness)
@@ -213,7 +350,7 @@ class CameraApp:
         ):
             return frame_bgr
 
-        overlay_color = self.draw_detection_box(frame_bgr, self.last_detection_box)
+        self.draw_detection_box(frame_bgr, self.last_detection_box)
         return frame_bgr
 
     def generate_stream(self, overlay=False):
@@ -246,10 +383,15 @@ class CameraApp:
         return Response(
             self.generate_stream(overlay=overlay),
             mimetype="multipart/x-mixed-replace; boundary=frame",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "X-Accel-Buffering": "no",
+            },
         )
 
     def generate_camera_events(self):
-        last_sent_label = None
+        last_sent_detection = None
 
         while True:
             self.label_event.wait(timeout=20)
@@ -257,15 +399,19 @@ class CameraApp:
 
             with self.label_lock:
                 label = self.current_label
+                timestamp = self.current_detection_timestamp or time.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
 
-            if label == last_sent_label:
+            current_detection = (label, timestamp)
+            if current_detection == last_sent_detection:
                 yield ": keepalive\n\n"
                 continue
 
-            last_sent_label = label
+            last_sent_detection = current_detection
             payload = {
                 "label": label,
-                "timestamp": time.strftime("%H:%M:%S"),
+                "timestamp": timestamp,
             }
             yield f"data: {json.dumps(payload)}\n\n"
 
