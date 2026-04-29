@@ -61,6 +61,8 @@ class CameraApp:
         self.classification_max_side = 320
         self.min_area = 650
         self.padding = 20
+        self.classification_context_padding = 90
+        self.classification_context_scale = 0.75
         self.previous_gray = None
         self.frame_index = 0
         self.motion_analysis_stride = 3
@@ -333,6 +335,7 @@ class CameraApp:
                                 "type": "input_text",
                                 "text": (
                                     "Nenne nur das Hauptobjekt in diesem Bildausschnitt. "
+                                    "Der relevante Bereich liegt in der Bildmitte; der Rand dient nur als Kontext. "
                                     "Antworte extrem kurz, nur 1 bis 3 Woerter, auf Deutsch. "
                                     "Beispiele: Mensch, Hund, Katze, Auto, Vogel, Auto, Paket, Unbekanntes Objekt."
                                 ),
@@ -351,9 +354,9 @@ class CameraApp:
             print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
             return self.current_label
 
-    def classify_object_in_background(self, roi, detection_box):
+    def classify_object_in_background(self, context_roi, detection_box):
         try:
-            label = self.classify_object_with_openai(roi)
+            label = self.classify_object_with_openai(context_roi)
             detection, state = self.persist_detection(label, detection_box)
             with self.label_lock:
                 self.current_label = detection["label"]
@@ -368,7 +371,7 @@ class CameraApp:
         finally:
             self.classification_in_progress = False
 
-    def maybe_start_classification(self, roi, detection_box):
+    def maybe_start_classification(self, frame_bgr, detection_box):
         current_time = time.time()
         if self.classification_in_progress:
             return
@@ -378,12 +381,33 @@ class CameraApp:
 
         self.last_classification_time = current_time
         self.classification_in_progress = True
+        context_roi = self.extract_classification_context(frame_bgr, detection_box)
         thread = threading.Thread(
             target=self.classify_object_in_background,
-            args=(roi.copy(), detection_box),
+            args=(context_roi, detection_box),
             daemon=True,
         )
         thread.start()
+
+    def extract_classification_context(self, frame_bgr, detection_box):
+        frame_height, frame_width = frame_bgr.shape[:2]
+        min_x, min_y, max_x, max_y = detection_box
+        box_width = max_x - min_x
+        box_height = max_y - min_y
+        dynamic_padding = int(
+            max(box_width, box_height) * self.classification_context_scale
+        )
+        padding = max(self.classification_context_padding, dynamic_padding)
+
+        context_min_x = max(0, min_x - padding)
+        context_min_y = max(0, min_y - padding)
+        context_max_x = min(frame_width, max_x + padding)
+        context_max_y = min(frame_height, max_y + padding)
+
+        return frame_bgr[
+            context_min_y:context_max_y,
+            context_min_x:context_max_x,
+        ].copy()
 
     def find_motion_box(self, frame_bgr):
         gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
@@ -455,9 +479,7 @@ class CameraApp:
             if detection_box is not None:
                 self.last_detection_box = detection_box
                 self.last_motion_time = time.time()
-                min_x, min_y, max_x, max_y = detection_box
-                roi = frame_bgr[min_y:max_y, min_x:max_x]
-                self.maybe_start_classification(roi, detection_box)
+                self.maybe_start_classification(frame_bgr, detection_box)
 
         if (
             self.last_detection_box is None
