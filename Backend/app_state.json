@@ -2,7 +2,12 @@
   "settings": {
     "overlay": false,
     "fit": false,
-    "mirror": false
+    "mirror": false,
+    "alarm": {
+      "enabled": false,
+      "start_minutes": 0,
+      "end_minutes": 0
+    }
   },
   "latest_detection": {
     "label": "Noch kein Objekt",

@@ -79,11 +79,7 @@ class CameraApp:
 
     def default_state(self):
         return {
-            "settings": {
-                "overlay": False,
-                "fit": False,
-                "mirror": False,
-            },
+            "settings": self.default_settings(),
             "latest_detection": {
                 "label": "Noch kein Objekt",
                 "timestamp": None,
@@ -94,15 +90,78 @@ class CameraApp:
             "events_today_date": time.strftime("%Y-%m-%d"),
         }
 
+    def default_settings(self):
+        return {
+            "overlay": False,
+            "fit": False,
+            "mirror": False,
+            "alarm": {
+                "enabled": False,
+                "start_minutes": 0,
+                "end_minutes": 0,
+            },
+        }
+
+    def normalize_minutes(self, value, fallback=0):
+        try:
+            minutes = int(value)
+        except (TypeError, ValueError):
+            minutes = fallback
+        return min(1439, max(0, minutes))
+
+    def normalize_alarm_settings(self, alarm_settings):
+        normalized = copy.deepcopy(self.default_settings()["alarm"])
+        if not isinstance(alarm_settings, dict):
+            return normalized
+
+        if "enabled" in alarm_settings:
+            normalized["enabled"] = bool(alarm_settings["enabled"])
+        if "start_minutes" in alarm_settings:
+            normalized["start_minutes"] = self.normalize_minutes(
+                alarm_settings["start_minutes"], normalized["start_minutes"]
+            )
+        if "end_minutes" in alarm_settings:
+            normalized["end_minutes"] = self.normalize_minutes(
+                alarm_settings["end_minutes"], normalized["end_minutes"]
+            )
+        return normalized
+
+    def normalize_settings(self, settings):
+        normalized = self.default_settings()
+        if not isinstance(settings, dict):
+            return normalized
+
+        for key in ("overlay", "fit", "mirror"):
+            if key in settings:
+                normalized[key] = bool(settings[key])
+        normalized["alarm"] = self.normalize_alarm_settings(settings.get("alarm"))
+        return normalized
+
+    def merge_settings(self, current_settings, updates):
+        merged = self.normalize_settings(current_settings)
+        if not isinstance(updates, dict):
+            return merged
+
+        for key in ("overlay", "fit", "mirror"):
+            if key in updates:
+                merged[key] = bool(updates[key])
+
+        alarm_updates = updates.get("alarm")
+        if isinstance(alarm_updates, dict):
+            merged_alarm = copy.deepcopy(merged["alarm"])
+            for key in ("enabled", "start_minutes", "end_minutes"):
+                if key in alarm_updates:
+                    merged_alarm[key] = alarm_updates[key]
+            merged["alarm"] = self.normalize_alarm_settings(merged_alarm)
+
+        return merged
+
     def normalize_state(self, data):
         state = self.default_state()
         if not isinstance(data, dict):
             return state
 
-        settings = data.get("settings")
-        if isinstance(settings, dict):
-            for key in state["settings"]:
-                state["settings"][key] = bool(settings.get(key, state["settings"][key]))
+        state["settings"] = self.normalize_settings(data.get("settings"))
 
         detections = data.get("detections")
         if isinstance(detections, list):
@@ -161,6 +220,7 @@ class CameraApp:
             "label": label.strip()[:80],
             "timestamp": timestamp,
             "camera_id": detection.get("camera_id") or "pi-main",
+            "alarm_triggered": bool(detection.get("alarm_triggered", False)),
         }
 
         box = detection.get("box")
@@ -198,10 +258,17 @@ class CameraApp:
             )
 
         latest_detection = state.get("latest_detection") or {}
+        alarm_events = [
+            detection for detection in detections if detection.get("alarm_triggered")
+        ]
         return {
             "total_events": state.get("event_counter", len(detections)),
             "stored_events": len(detections),
             "events_today": state.get("events_today", 0),
+            "alarm_events": len(alarm_events),
+            "last_alarm_at": alarm_events[-1].get("timestamp")
+            if alarm_events
+            else None,
             "unique_labels": len(label_counts),
             "top_label": top_label or "Keine Daten",
             "top_label_count": top_label_count,
@@ -209,9 +276,48 @@ class CameraApp:
             "history_limit": MAX_DETECTIONS,
         }
 
+    def is_alarm_label(self, label):
+        normalized_label = (label or "").casefold()
+        return "mensch" in normalized_label or "person" in normalized_label
+
+    def is_in_alarm_window(self, alarm_settings, current_time=None):
+        local_time = current_time or time.localtime()
+        current_minutes = (local_time.tm_hour * 60) + local_time.tm_min
+        start_minutes = self.normalize_minutes(alarm_settings.get("start_minutes"))
+        end_minutes = self.normalize_minutes(alarm_settings.get("end_minutes"))
+
+        if start_minutes == end_minutes:
+            return True
+        if start_minutes < end_minutes:
+            return start_minutes <= current_minutes <= end_minutes
+        return current_minutes >= start_minutes or current_minutes <= end_minutes
+
+    def alarm_status(self, settings):
+        alarm_settings = self.normalize_alarm_settings(
+            (settings or {}).get("alarm") if isinstance(settings, dict) else None
+        )
+        enabled = bool(alarm_settings.get("enabled"))
+        window_active = self.is_in_alarm_window(alarm_settings)
+        return {
+            "enabled": enabled,
+            "window_active": window_active,
+            "armed_now": enabled and window_active,
+        }
+
+    def should_trigger_alarm(self, label, settings, current_time=None):
+        alarm_settings = self.normalize_alarm_settings(
+            (settings or {}).get("alarm") if isinstance(settings, dict) else None
+        )
+        return (
+            bool(alarm_settings.get("enabled"))
+            and self.is_alarm_label(label)
+            and self.is_in_alarm_window(alarm_settings, current_time)
+        )
+
     def state_response_unlocked(self):
         state = copy.deepcopy(self.state)
         state["analytics"] = self.summarize_state(state)
+        state["alarm_status"] = self.alarm_status(state.get("settings", {}))
         state["recent_detections"] = state.get("detections", [])[-20:][::-1]
         return state
 
@@ -247,10 +353,7 @@ class CameraApp:
         with self.state_lock:
             state = self.normalize_state(self.state)
             settings = payload.get("settings")
-            if isinstance(settings, dict):
-                for key in state["settings"]:
-                    if key in settings:
-                        state["settings"][key] = bool(settings[key])
+            state["settings"] = self.merge_settings(state["settings"], settings)
 
             self.state = state
             self.write_state_unlocked(self.state)
@@ -259,7 +362,8 @@ class CameraApp:
         return jsonify(response_state)
 
     def persist_detection(self, label, detection_box=None):
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        current_time = time.localtime()
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", current_time)
         detection = {
             "id": int(time.time() * 1000),
             "label": label,
@@ -280,7 +384,10 @@ class CameraApp:
 
         with self.state_lock:
             state = self.normalize_state(self.state)
-            today = time.strftime("%Y-%m-%d")
+            detection["alarm_triggered"] = self.should_trigger_alarm(
+                label, state.get("settings", {}), current_time
+            )
+            today = time.strftime("%Y-%m-%d", current_time)
             if state.get("events_today_date") != today:
                 state["events_today"] = 0
                 state["events_today_date"] = today
@@ -336,6 +443,7 @@ class CameraApp:
                                 "text": (
                                     "Nenne nur das Hauptobjekt in diesem Bildausschnitt. "
                                     "Der relevante Bereich liegt in der Bildmitte; der Rand dient nur als Kontext. "
+                                    "Wenn eine Person sichtbar ist, antworte mit Mensch. "
                                     "Antworte extrem kurz, nur 1 bis 3 Woerter, auf Deutsch. "
                                     "Beispiele: Mensch, Hund, Katze, Auto, Vogel, Auto, Paket, Unbekanntes Objekt."
                                 ),
@@ -364,6 +472,7 @@ class CameraApp:
                 self.current_detection_payload = {
                     "detection": detection,
                     "analytics": state["analytics"],
+                    "alarm_status": state["alarm_status"],
                     "recent_detections": state["recent_detections"],
                 }
                 self.label_event.set()
@@ -470,7 +579,7 @@ class CameraApp:
         cv2.line(frame_bgr, (max_x, max_y), (max_x, max_y - corner_length), overlay_color, line_thickness)
         return overlay_color
 
-    def draw_light_motion_overlay(self, frame_bgr):
+    def analyze_motion_frame(self, frame_bgr, draw_overlay=False):
         self.frame_index += 1
         should_analyze = self.frame_index % self.motion_analysis_stride == 0
 
@@ -487,10 +596,11 @@ class CameraApp:
         ):
             return frame_bgr
 
-        self.draw_detection_box(frame_bgr, self.last_detection_box)
+        if draw_overlay:
+            self.draw_detection_box(frame_bgr, self.last_detection_box)
         return frame_bgr
 
-    def generate_stream(self, overlay=False):
+    def generate_stream(self, overlay=False, alarm=False):
         self.previous_gray = None
         self.frame_index = 0
         self.last_detection_box = None
@@ -500,8 +610,8 @@ class CameraApp:
             frame = self.picam2.capture_array()
             frame_bgr = frame
 
-            if overlay:
-                frame_bgr = self.draw_light_motion_overlay(frame_bgr)
+            if overlay or alarm:
+                frame_bgr = self.analyze_motion_frame(frame_bgr, draw_overlay=overlay)
 
             frame_bytes = self.encode_frame(frame_bgr)
             if frame_bytes is None:
@@ -517,8 +627,9 @@ class CameraApp:
             return jsonify({"error": "Kamera nicht gefunden."}), 404
 
         overlay = request.args.get("overlay", "0") == "1"
+        alarm = request.args.get("alarm", "0") == "1"
         return Response(
-            self.generate_stream(overlay=overlay),
+            self.generate_stream(overlay=overlay, alarm=alarm),
             mimetype="multipart/x-mixed-replace; boundary=frame",
             headers={
                 "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -531,8 +642,12 @@ class CameraApp:
         last_sent_detection = None
 
         while True:
-            self.label_event.wait(timeout=20)
+            event_received = self.label_event.wait(timeout=20)
             self.label_event.clear()
+
+            if not event_received:
+                yield ": keepalive\n\n"
+                continue
 
             with self.label_lock:
                 label = self.current_label
@@ -550,6 +665,7 @@ class CameraApp:
             payload = detection_payload or {
                 "detection": {"label": label, "timestamp": timestamp},
                 "analytics": {},
+                "alarm_status": self.alarm_status(self.state.get("settings", {})),
                 "recent_detections": [],
             }
             yield f"data: {json.dumps(payload)}\n\n"
