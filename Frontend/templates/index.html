@@ -29,11 +29,13 @@
             body {
                 width: 100%;
                 min-height: 100%;
+                overflow-x: hidden;
             }
 
             body {
                 margin: 0;
-                overflow: auto;
+                min-height: 100vh;
+                overflow-y: auto;
                 color: var(--text);
                 font-family: ui-sans-serif, "Avenir Next", "Segoe UI", sans-serif;
                 background:
@@ -70,10 +72,12 @@
             }
 
             .viewer {
-                position: sticky;
-                top: 12px;
-                height: calc(100vh - 24px);
-                min-height: 520px;
+                position: relative;
+                width: 100%;
+                min-width: 0;
+                aspect-ratio: 4 / 3;
+                justify-self: center;
+                align-self: start;
                 overflow: hidden;
                 border-radius: 32px;
                 background: #020914;
@@ -301,21 +305,25 @@
             }
 
             #cameraFeed {
+                position: absolute;
+                inset: 0;
                 width: 100%;
                 height: 100%;
                 display: block;
-                object-fit: cover;
+                object-fit: contain;
                 object-position: center center;
                 background: #020914;
             }
 
-            #cameraFeed.show-full-frame {
-                object-fit: contain;
-                object-position: center center;
-            }
-
             #cameraFeed.mirrored {
                 transform: scaleX(-1);
+            }
+
+            .viewer:fullscreen {
+                width: 100vw !important;
+                height: 100vh;
+                aspect-ratio: auto;
+                border-radius: 0;
             }
 
             .viewer::before {
@@ -325,8 +333,25 @@
                 z-index: 2;
                 pointer-events: none;
                 background:
-                    linear-gradient(180deg, rgba(2, 9, 20, 0.5) 0%, transparent 22%, transparent 72%, rgba(2, 9, 20, 0.46) 100%),
-                    linear-gradient(90deg, rgba(2, 9, 20, 0.32) 0%, transparent 18%);
+                    linear-gradient(180deg, rgba(2, 9, 20, 0.34) 0%, transparent 18%, transparent 78%, rgba(2, 9, 20, 0.26) 100%),
+                    linear-gradient(90deg, rgba(2, 9, 20, 0.18) 0%, transparent 16%);
+            }
+
+            .viewer::before,
+            .viewer-top,
+            .object-hero,
+            .focus-ring {
+                transition: opacity 160ms ease;
+            }
+
+            .viewer.minimal-overlay::before {
+                opacity: 0.25;
+            }
+
+            .viewer.minimal-overlay .viewer-top,
+            .viewer.minimal-overlay .object-hero,
+            .viewer.minimal-overlay .focus-ring {
+                opacity: 0;
             }
 
             .viewer-top,
@@ -343,11 +368,11 @@
             }
 
             .viewer-top {
-                top: 20px;
+                top: 16px;
             }
 
             .viewer-bottom {
-                bottom: 20px;
+                display: none;
             }
 
             .viewer-badge,
@@ -368,17 +393,16 @@
             .object-hero {
                 position: absolute;
                 z-index: 4;
-                top: 72px;
-                left: 50%;
-                transform: translateX(-50%);
-                min-width: min(420px, calc(100% - 48px));
-                padding: 14px 18px;
-                border-radius: 22px;
+                left: 18px;
+                bottom: 18px;
+                max-width: min(360px, calc(100% - 36px));
+                padding: 12px 14px;
+                border-radius: 18px;
                 border: 1px solid rgba(118, 228, 255, 0.32);
-                background: rgba(4, 13, 27, 0.72);
-                box-shadow: 0 18px 48px rgba(0, 0, 0, 0.26);
-                backdrop-filter: blur(18px);
-                text-align: center;
+                background: rgba(4, 13, 27, 0.58);
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+                backdrop-filter: blur(14px);
+                text-align: left;
                 pointer-events: none;
             }
 
@@ -394,7 +418,7 @@
             .object-hero strong {
                 display: block;
                 margin-top: 4px;
-                font-size: clamp(1.4rem, 3vw, 2.4rem);
+                font-size: clamp(1.2rem, 2.4vw, 1.9rem);
                 line-height: 1;
                 letter-spacing: -0.05em;
                 color: var(--text);
@@ -403,9 +427,9 @@
             .focus-ring {
                 position: absolute;
                 z-index: 3;
-                inset: 26px;
+                inset: 18px;
                 pointer-events: none;
-                border: 1px solid rgba(118, 228, 255, 0.06);
+                border: 1px solid rgba(118, 228, 255, 0.08);
                 border-radius: 22px;
             }
 
@@ -446,9 +470,8 @@
 
                 .viewer {
                     position: relative;
-                    top: auto;
-                    height: auto;
-                    min-height: 58vh;
+                    width: 100%;
+                    min-height: 0;
                 }
             }
 
@@ -510,8 +533,8 @@
                     <article class="control-card">
                         <div class="control-row">
                             <div>
-                                <h3>Ganzes Bild</h3>
-                                <p class="muted">Optional mit Balken statt Cropping.</p>
+                                <h3>Overlay reduzieren</h3>
+                                <p class="muted">Blendet Badges im Kamerabild aus.</p>
                             </div>
                             <label class="switch">
                                 <input id="fitToggle" type="checkbox" />
@@ -608,6 +631,9 @@
 
         <script>
             const cameraFeed = document.getElementById("cameraFeed");
+            const appShell = document.querySelector(".app");
+            const sidebar = document.querySelector(".sidebar");
+            const viewer = document.querySelector(".viewer");
             const overlayToggle = document.getElementById("overlayToggle");
             const fitToggle = document.getElementById("fitToggle");
             const mirrorToggle = document.getElementById("mirrorToggle");
@@ -637,8 +663,26 @@
             }
 
             function updateLocalViewOptions() {
-                cameraFeed.classList.toggle("show-full-frame", fitToggle.checked);
+                viewer.classList.toggle("minimal-overlay", fitToggle.checked);
                 cameraFeed.classList.toggle("mirrored", mirrorToggle.checked);
+            }
+
+            function fitViewerToViewport() {
+                if (window.matchMedia("(max-width: 980px)").matches) {
+                    viewer.style.width = "100%";
+                    return;
+                }
+
+                const appStyles = window.getComputedStyle(appShell);
+                const columnGap = Number.parseFloat(appStyles.columnGap) || 0;
+                const availableWidth = Math.max(
+                    1,
+                    appShell.clientWidth - sidebar.offsetWidth - columnGap
+                );
+                const availableHeight = Math.max(360, window.innerHeight - 24);
+                const widthByHeight = availableHeight * (4 / 3);
+                const viewerWidth = Math.min(availableWidth, widthByHeight);
+                viewer.style.width = `${Math.floor(viewerWidth)}px`;
             }
 
             function updateObjectDisplay(label, timestamp) {
@@ -751,7 +795,6 @@
             }
 
             function openFullscreen() {
-                const viewer = document.querySelector(".viewer");
                 if (document.fullscreenElement) {
                     document.exitFullscreen();
                     return;
@@ -774,6 +817,10 @@
             });
             fullscreenButton.addEventListener("click", openFullscreen);
             reloadButton.addEventListener("click", reconnectStream);
+            window.addEventListener("resize", fitViewerToViewport, { passive: true });
+            if ("ResizeObserver" in window) {
+                new ResizeObserver(fitViewerToViewport).observe(appShell);
+            }
 
             const cameraEvents = new EventSource("/camera_events");
             cameraEvents.onmessage = (event) => {
@@ -789,6 +836,7 @@
             };
 
             loadAppState();
+            fitViewerToViewport();
         </script>
     </body>
 </html>
