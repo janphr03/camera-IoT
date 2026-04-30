@@ -39,7 +39,6 @@ class CameraApp:
         self.state_file = STATE_FILE
         self.state_lock = threading.Lock()
         self.state = self.load_state()
-        latest_detection = self.state.get("latest_detection", {})
 
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
         self.picam2 = Picamera2()
@@ -71,19 +70,24 @@ class CameraApp:
         self.motion_hold_seconds = 0.55
         self.classification_interval = 5
         self.last_classification_time = 0
-        self.current_label = latest_detection.get("label") or "Noch kein Objekt"
-        self.current_detection_timestamp = latest_detection.get("timestamp")
+        self.session_latest_detection = self.default_latest_detection()
+        self.current_label = self.session_latest_detection["label"]
+        self.current_detection_timestamp = self.session_latest_detection["timestamp"]
+        self.current_detection_payload = None
         self.classification_in_progress = False
         self.label_lock = threading.Lock()
         self.label_event = threading.Event()
 
+    def default_latest_detection(self):
+        return {
+            "label": "Noch kein Objekt",
+            "timestamp": None,
+        }
+
     def default_state(self):
         return {
             "settings": self.default_settings(),
-            "latest_detection": {
-                "label": "Noch kein Objekt",
-                "timestamp": None,
-            },
+            "latest_detection": self.default_latest_detection(),
             "detections": [],
             "event_counter": 0,
             "events_today": 0,
@@ -333,6 +337,7 @@ class CameraApp:
     def state_response_unlocked(self):
         state = copy.deepcopy(self.state)
         state["analytics"] = self.summarize_state(state)
+        state["latest_detection"] = copy.deepcopy(self.session_latest_detection)
         state["alarm_status"] = self.alarm_status(state.get("settings", {}))
         state["recent_detections"] = state.get("detections", [])[-20:][::-1]
         return state
@@ -413,6 +418,7 @@ class CameraApp:
             state["event_counter"] += 1
             state["events_today"] += 1
             self.state = state
+            self.session_latest_detection = copy.deepcopy(detection)
             self.write_state_unlocked(self.state)
             response_state = self.state_response_unlocked()
 
@@ -450,6 +456,7 @@ class CameraApp:
         try:
             response = self.client.responses.create(
                 model="gpt-4.1-mini",
+                temperature=0,
                 input=[
                     {
                         "role": "user",
@@ -457,11 +464,13 @@ class CameraApp:
                             {
                                 "type": "input_text",
                                 "text": (
-                                    "Nenne nur das Hauptobjekt in diesem Bildausschnitt. "
+                                    "Klassifiziere den Bildausschnitt strikt in genau eine dieser Kategorien: "
+                                    "Mensch, Tier oder Bewegung. "
                                     "Der relevante Bereich liegt in der Bildmitte; der Rand dient nur als Kontext. "
                                     "Wenn eine Person sichtbar ist, antworte mit Mensch. "
-                                    "Antworte extrem kurz, nur 1 bis 3 Woerter, auf Deutsch. "
-                                    "Beispiele: Mensch, Hund, Katze, Auto, Vogel, Auto, Paket, Unbekanntes Objekt."
+                                    "Wenn ein Tier sichtbar ist, antworte mit Tier. "
+                                    "Wenn kein Mensch und kein Tier sicher sichtbar ist, antworte mit Bewegung. "
+                                    "Antworte nur mit einem einzigen Wort: Mensch, Tier oder Bewegung."
                                 ),
                             },
                             {
@@ -473,7 +482,12 @@ class CameraApp:
                 ],
             )
             label = response.output_text.strip()
-            return label if label else "Unbekanntes Objekt"
+            normalized_label = label.casefold()
+            if "mensch" in normalized_label or "person" in normalized_label:
+                return "Mensch"
+            if "tier" in normalized_label:
+                return "Tier"
+            return "Bewegung"
         except Exception as exc:
             print(f"[{time.strftime('%H:%M:%S')}] OpenAI-Fehler: {exc}")
             return self.current_label
