@@ -1,20 +1,23 @@
 {
   "settings": {
-    "overlay": false,
+    "overlay": true,
     "fit": false,
     "mirror": false,
     "alarm": {
       "enabled": true,
-      "start_minutes": 0,
-      "end_minutes": 0
+      "start_minutes": 525,
+      "end_minutes": 555
     }
   },
   "latest_detection": {
+    "id": 0,
     "label": "Noch kein Objekt",
-    "timestamp": null
+    "timestamp": null,
+    "camera_id": "pi-main",
+    "alarm_triggered": false
   },
   "detections": [],
   "event_counter": 0,
   "events_today": 0,
-  "events_today_date": "2026-04-29"
+  "events_today_date": "2026-05-03"
 }

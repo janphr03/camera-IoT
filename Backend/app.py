@@ -8,10 +8,15 @@ import time
 import webbrowser
 
 import cv2
+import numpy as np
 from dotenv import load_dotenv
 from flask import Flask, Response, jsonify, render_template, request
 from openai import OpenAI
-from picamera2 import Picamera2
+
+try:
+    from picamera2 import Picamera2
+except ImportError:
+    Picamera2 = None
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -41,14 +46,19 @@ class CameraApp:
         self.state = self.load_state()
 
         self.client = OpenAI() if os.getenv("OPENAI_API_KEY") else None
-        self.picam2 = Picamera2()
-        config = self.picam2.create_video_configuration(
-            main={"size": (640, 480), "format": "RGB888"},
-            controls={"FrameDurationLimits": (33333, 33333)},
-        )
-        self.picam2.configure(config)
-        self.picam2.start()
-        time.sleep(1)
+        self.picam2 = None
+        self.camera_mock = Picamera2 is None or os.getenv("CAMERA_MODE") == "mock"
+        if self.camera_mock:
+            print("Kamera-Modus: Demo-Stream ohne Raspberry-Pi-Kamera.")
+        else:
+            self.picam2 = Picamera2()
+            config = self.picam2.create_video_configuration(
+                main={"size": (640, 480), "format": "RGB888"},
+                controls={"FrameDurationLimits": (33333, 33333)},
+            )
+            self.picam2.configure(config)
+            self.picam2.start()
+            time.sleep(1)
 
         self.jpeg_quality = 58
         self.jpeg_encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
@@ -433,7 +443,7 @@ class CameraApp:
 
     def classify_object_with_openai(self, roi):
         if self.client is None:
-            return "OpenAI API-Key fehlt"
+            return None
 
         roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
         height, width = roi_rgb.shape[:2]
@@ -495,6 +505,8 @@ class CameraApp:
     def classify_object_in_background(self, context_roi, detection_box):
         try:
             label = self.classify_object_with_openai(context_roi)
+            if label is None:
+                return
             if not self.is_detection_schedule_active():
                 return
             detection, state = self.persist_detection(label, detection_box)
@@ -638,6 +650,39 @@ class CameraApp:
         self.last_detection_box = None
         self.last_motion_time = 0
 
+    def capture_frame(self):
+        if self.camera_mock:
+            return self.generate_mock_frame()
+        return self.picam2.capture_array()
+
+    def generate_mock_frame(self):
+        width = 640
+        height = 480
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        frame[:] = (45, 45, 45)
+
+        now = time.time()
+        x = int((now * 45) % (width + 100)) - 50
+        cv2.rectangle(frame, (0, 300), (width, height), (58, 67, 64), -1)
+        cv2.rectangle(frame, (70, 80), (570, 300), (35, 38, 39), 2)
+        cv2.line(frame, (0, 330), (width, 315), (92, 105, 102), 2)
+        cv2.circle(frame, (520, 95), 38, (95, 115, 118), -1)
+        cv2.circle(frame, (x + 25, 220), 18, (178, 170, 150), -1)
+        cv2.rectangle(frame, (x + 10, 240), (x + 42, 310), (82, 105, 112), -1)
+        cv2.line(frame, (x + 16, 310), (x + 2, 370), (34, 34, 34), 7)
+        cv2.line(frame, (x + 36, 310), (x + 55, 370), (34, 34, 34), 7)
+        cv2.putText(
+            frame,
+            "DEMO STREAM",
+            (24, 42),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.85,
+            (230, 232, 226),
+            2,
+            cv2.LINE_AA,
+        )
+        return frame
+
     def generate_stream(self):
         self.reset_motion_tracking()
         last_schedule_check = 0
@@ -645,7 +690,7 @@ class CameraApp:
         detection_active = False
 
         while True:
-            frame = self.picam2.capture_array()
+            frame = self.capture_frame()
             frame_bgr = frame
 
             current_time = time.time()
