@@ -6,18 +6,38 @@
     "alarm": {
       "enabled": true,
       "start_minutes": 120,
-      "end_minutes": 1170
+      "end_minutes": 1170,
+      "labels": {
+        "mensch": true,
+        "tier": false,
+        "bewegung": false
+      }
     }
   },
   "latest_detection": {
-    "id": 0,
-    "label": "Noch kein Objekt",
-    "timestamp": null,
+    "id": 20260501113200,
+    "label": "Tier",
+    "timestamp": "2026-05-01 11:32:00",
     "camera_id": "pi-main",
     "alarm_triggered": false
   },
-  "detections": [],
-  "event_counter": 0,
+  "detections": [
+    {
+      "id": 20260501101500,
+      "label": "Mensch",
+      "timestamp": "2026-05-01 10:15:00",
+      "camera_id": "pi-main",
+      "alarm_triggered": true
+    },
+    {
+      "id": 20260501113200,
+      "label": "Tier",
+      "timestamp": "2026-05-01 11:32:00",
+      "camera_id": "pi-main",
+      "alarm_triggered": false
+    }
+  ],
+  "event_counter": 2,
   "events_today": 0,
   "events_today_date": "2026-05-04"
 }

@@ -1214,8 +1214,40 @@
                     return "--:--";
                 }
 
-                const parts = timestamp.split(" ");
-                return parts.length > 1 ? parts[1].slice(0, 5) : timestamp;
+                const match = timestamp.match(
+                    /^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/
+                );
+                if (!match) {
+                    return timestamp;
+                }
+
+                const [, year, month, day, hour, minute] = match;
+                const eventDate = new Date(
+                    Number(year),
+                    Number(month) - 1,
+                    Number(day)
+                );
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const eventDay = new Date(eventDate);
+                eventDay.setHours(0, 0, 0, 0);
+                const dayDiff = Math.round((today - eventDay) / 86400000);
+                const time = `${hour}:${minute}`;
+
+                if (dayDiff === 0) {
+                    return `Heute ${time}`;
+                }
+                if (dayDiff === 1) {
+                    return `Gestern ${time}`;
+                }
+                if (dayDiff === 2) {
+                    return `Vorgestern ${time}`;
+                }
+                if (Number(year) === today.getFullYear()) {
+                    return `${day}.${month}. ${time}`;
+                }
+                return `${day}.${month}.${year} ${time}`;
             }
 
             function updateAnalytics(analytics = {}) {
