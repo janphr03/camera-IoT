@@ -2,11 +2,11 @@
   "settings": {
     "overlay": true,
     "fit": false,
-    "mirror": false,
+    "mirror": true,
     "alarm": {
       "enabled": true,
-      "start_minutes": 525,
-      "end_minutes": 555
+      "start_minutes": 120,
+      "end_minutes": 1170
     }
   },
   "latest_detection": {
@@ -19,5 +19,5 @@
   "detections": [],
   "event_counter": 0,
   "events_today": 0,
-  "events_today_date": "2026-05-03"
+  "events_today_date": "2026-05-04"
 }
