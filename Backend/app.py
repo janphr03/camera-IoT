@@ -80,6 +80,9 @@ class CameraApp:
         self.motion_hold_seconds = 0.55
         self.classification_interval = 5
         self.last_classification_time = 0
+        self.classification_flash_box = None
+        self.classification_flash_until = 0
+        self.classification_flash_seconds = 1.1
         self.session_latest_detection = self.default_latest_detection()
         self.current_label = self.session_latest_detection["label"]
         self.current_detection_timestamp = self.session_latest_detection["timestamp"]
@@ -534,6 +537,12 @@ class CameraApp:
 
         self.last_classification_time = current_time
         self.classification_in_progress = True
+        if self.client is not None:
+            context_box = self.classification_context_box(frame_bgr, detection_box)
+            self.classification_flash_box = context_box
+            self.classification_flash_until = (
+                current_time + self.classification_flash_seconds
+            )
         context_roi = self.extract_classification_context(frame_bgr, detection_box)
         thread = threading.Thread(
             target=self.classify_object_in_background,
@@ -542,7 +551,7 @@ class CameraApp:
         )
         thread.start()
 
-    def extract_classification_context(self, frame_bgr, detection_box):
+    def classification_context_box(self, frame_bgr, detection_box):
         frame_height, frame_width = frame_bgr.shape[:2]
         min_x, min_y, max_x, max_y = detection_box
         box_width = max_x - min_x
@@ -556,6 +565,13 @@ class CameraApp:
         context_min_y = max(0, min_y - padding)
         context_max_x = min(frame_width, max_x + padding)
         context_max_y = min(frame_height, max_y + padding)
+
+        return context_min_x, context_min_y, context_max_x, context_max_y
+
+    def extract_classification_context(self, frame_bgr, detection_box):
+        context_min_x, context_min_y, context_max_x, context_max_y = (
+            self.classification_context_box(frame_bgr, detection_box)
+        )
 
         return frame_bgr[
             context_min_y:context_max_y,
@@ -623,6 +639,31 @@ class CameraApp:
         cv2.line(frame_bgr, (max_x, max_y), (max_x, max_y - corner_length), overlay_color, line_thickness)
         return overlay_color
 
+    def draw_classification_flash(self, frame_bgr):
+        if self.classification_flash_box is None:
+            return
+
+        current_time = time.time()
+        if current_time > self.classification_flash_until:
+            self.classification_flash_box = None
+            return
+
+        min_x, min_y, max_x, max_y = self.classification_flash_box
+        roi = frame_bgr[min_y:max_y, min_x:max_x]
+        if not roi.size:
+            return
+
+        remaining = self.classification_flash_until - current_time
+        progress = min(1.0, max(0.0, remaining / self.classification_flash_seconds))
+        alpha = 0.08 + (0.22 * progress)
+        tint = roi.copy()
+        tint[:] = (40, 230, 70)
+        cv2.addWeighted(tint, alpha, roi, 1 - alpha, 0, roi)
+
+        flash_color = (45, 255, 90)
+        thickness = 2 + int(3 * progress)
+        cv2.rectangle(frame_bgr, (min_x, min_y), (max_x, max_y), flash_color, thickness)
+
     def analyze_motion_frame(self, frame_bgr, draw_overlay=False):
         self.frame_index += 1
         should_analyze = self.frame_index % self.motion_analysis_stride == 0
@@ -634,14 +675,15 @@ class CameraApp:
                 self.last_motion_time = time.time()
                 self.maybe_start_classification(frame_bgr, detection_box)
 
-        if (
-            self.last_detection_box is None
-            or time.time() - self.last_motion_time > self.motion_hold_seconds
-        ):
-            return frame_bgr
+        recent_motion = (
+            self.last_detection_box is not None
+            and time.time() - self.last_motion_time <= self.motion_hold_seconds
+        )
 
         if draw_overlay:
-            self.draw_detection_box(frame_bgr, self.last_detection_box)
+            if recent_motion:
+                self.draw_detection_box(frame_bgr, self.last_detection_box)
+            self.draw_classification_flash(frame_bgr)
         return frame_bgr
 
     def reset_motion_tracking(self):
@@ -649,6 +691,8 @@ class CameraApp:
         self.frame_index = 0
         self.last_detection_box = None
         self.last_motion_time = 0
+        self.classification_flash_box = None
+        self.classification_flash_until = 0
 
     def capture_frame(self):
         if self.camera_mock:
