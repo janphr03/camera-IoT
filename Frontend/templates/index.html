@@ -1075,6 +1075,7 @@
             let lastAlarmKey = null;
             let lastAlarmArmedState = null;
             let alarmAudioContext = null;
+            let alarmAudioUnlocked = false;
             const alarmTargetToggles = [
                 alarmHumanToggle,
                 alarmAnimalToggle,
@@ -1266,9 +1267,32 @@
 
             function unlockAlarmAudio() {
                 const context = ensureAlarmAudioContext();
-                if (context && context.state === "suspended") {
-                    context.resume().catch(() => {});
+                if (!context) {
+                    return;
                 }
+
+                const markUnlocked = () => {
+                    if (alarmAudioUnlocked) {
+                        return;
+                    }
+
+                    const oscillator = context.createOscillator();
+                    const gain = context.createGain();
+                    const now = context.currentTime;
+                    gain.gain.setValueAtTime(0.0001, now);
+                    oscillator.connect(gain);
+                    gain.connect(context.destination);
+                    oscillator.start(now);
+                    oscillator.stop(now + 0.02);
+                    alarmAudioUnlocked = true;
+                };
+
+                if (context.state === "suspended") {
+                    context.resume().then(markUnlocked).catch(() => {});
+                    return;
+                }
+
+                markUnlocked();
             }
 
             function playAlarmTone() {
@@ -1278,23 +1302,35 @@
                 }
 
                 const playTone = () => {
-                    const oscillator = context.createOscillator();
-                    const gain = context.createGain();
                     const now = context.currentTime;
+                    const tones = [
+                        { offset: 0, frequency: 720 },
+                        { offset: 0.18, frequency: 920 },
+                        { offset: 0.36, frequency: 720 },
+                    ];
 
-                    oscillator.type = "sine";
-                    oscillator.frequency.setValueAtTime(780, now);
-                    gain.gain.setValueAtTime(0.001, now);
-                    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.03);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
-                    oscillator.connect(gain);
-                    gain.connect(context.destination);
-                    oscillator.start(now);
-                    oscillator.stop(now + 0.34);
+                    for (const tone of tones) {
+                        const oscillator = context.createOscillator();
+                        const gain = context.createGain();
+                        const start = now + tone.offset;
+                        const end = start + 0.14;
+
+                        oscillator.type = "square";
+                        oscillator.frequency.setValueAtTime(tone.frequency, start);
+                        gain.gain.setValueAtTime(0.001, start);
+                        gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.001, end);
+                        oscillator.connect(gain);
+                        gain.connect(context.destination);
+                        oscillator.start(start);
+                        oscillator.stop(end + 0.02);
+                    }
                 };
 
                 if (context.state === "suspended") {
-                    context.resume().then(playTone).catch(() => {});
+                    context.resume().then(playTone).catch(() => {
+                        streamStatus.textContent = "Ton durch Klick auf die Seite aktivieren.";
+                    });
                     return;
                 }
 
@@ -1429,6 +1465,8 @@
             });
             window.addEventListener("resize", fitViewerToViewport, { passive: true });
             document.addEventListener("pointerdown", unlockAlarmAudio, { once: true });
+            document.addEventListener("keydown", unlockAlarmAudio, { once: true });
+            document.addEventListener("touchstart", unlockAlarmAudio, { once: true, passive: true });
             window.setInterval(refreshAlarmClock, 60000);
             if ("ResizeObserver" in window) {
                 new ResizeObserver(fitViewerToViewport).observe(appShell);
