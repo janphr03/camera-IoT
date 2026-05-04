@@ -116,6 +116,11 @@ class CameraApp:
                 "enabled": True,
                 "start_minutes": 0,
                 "end_minutes": 0,
+                "labels": {
+                    "mensch": True,
+                    "tier": False,
+                    "bewegung": False,
+                },
             },
         }
 
@@ -140,6 +145,11 @@ class CameraApp:
             normalized["end_minutes"] = self.normalize_minutes(
                 alarm_settings["end_minutes"], normalized["end_minutes"]
             )
+        labels = alarm_settings.get("labels")
+        if isinstance(labels, dict):
+            for key in ("mensch", "tier", "bewegung"):
+                if key in labels:
+                    normalized["labels"][key] = bool(labels[key])
         return normalized
 
     def normalize_settings(self, settings):
@@ -168,6 +178,11 @@ class CameraApp:
             for key in ("start_minutes", "end_minutes"):
                 if key in alarm_updates:
                     merged_alarm[key] = alarm_updates[key]
+            if isinstance(alarm_updates.get("labels"), dict):
+                merged_alarm["labels"] = {
+                    **merged_alarm.get("labels", {}),
+                    **alarm_updates["labels"],
+                }
             merged["alarm"] = self.normalize_alarm_settings(merged_alarm)
 
         return merged
@@ -306,9 +321,22 @@ class CameraApp:
             "history_limit": MAX_DETECTIONS,
         }
 
-    def is_alarm_label(self, label):
+    def alarm_label_key(self, label):
         normalized_label = (label or "").casefold()
-        return "mensch" in normalized_label or "person" in normalized_label
+        if "mensch" in normalized_label or "person" in normalized_label:
+            return "mensch"
+        if "tier" in normalized_label:
+            return "tier"
+        if "bewegung" in normalized_label:
+            return "bewegung"
+        return None
+
+    def is_alarm_label_enabled(self, label, alarm_settings):
+        label_key = self.alarm_label_key(label)
+        if label_key is None:
+            return False
+        labels = alarm_settings.get("labels", {})
+        return bool(labels.get(label_key, False))
 
     def is_in_alarm_window(self, alarm_settings, current_time=None):
         local_time = current_time or time.localtime()
@@ -331,6 +359,7 @@ class CameraApp:
             "enabled": True,
             "window_active": window_active,
             "armed_now": window_active,
+            "labels": copy.deepcopy(alarm_settings.get("labels", {})),
         }
 
     def should_trigger_alarm(self, label, settings, current_time=None):
@@ -338,7 +367,7 @@ class CameraApp:
             (settings or {}).get("alarm") if isinstance(settings, dict) else None
         )
         return (
-            self.is_alarm_label(label)
+            self.is_alarm_label_enabled(label, alarm_settings)
             and self.is_in_alarm_window(alarm_settings, current_time)
         )
 
@@ -480,7 +509,10 @@ class CameraApp:
                                     "Klassifiziere den Bildausschnitt strikt in genau eine dieser Kategorien: "
                                     "Mensch, Tier oder Bewegung. "
                                     "Der relevante Bereich liegt in der Bildmitte; der Rand dient nur als Kontext. "
-                                    "Wenn eine Person sichtbar ist, antworte mit Mensch. "
+                                    "Antworte mit Mensch nur, wenn eine Person klar als Person erkennbar ist: "
+                                    "zum Beispiel Kopf, Gesicht, Oberkoerper oder ein groesserer zusammenhaengender Koerperteil. "
+                                    "Ein einzelner Ellenbogen, eine einzelne Hand, ein Arm, ein Bein oder nur Kleidung reicht nicht fuer Mensch. "
+                                    "Wenn nur ein einzelnes Koerperteil oder eine unklare menschliche Spur sichtbar ist, antworte mit Bewegung. "
                                     "Wenn ein Tier sichtbar ist, antworte mit Tier. "
                                     "Wenn kein Mensch und kein Tier sicher sichtbar ist, antworte mit Bewegung. "
                                     "Antworte nur mit einem einzigen Wort: Mensch, Tier oder Bewegung."

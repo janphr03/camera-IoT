@@ -508,6 +508,44 @@
                     rgba(157, 64, 46, 0.07);
             }
 
+            .alarm-targets {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+                margin-top: 16px;
+            }
+
+            .alarm-target {
+                position: relative;
+                display: grid;
+                place-items: center;
+                min-height: 36px;
+                border: 1px solid rgba(24, 22, 19, 0.16);
+                border-radius: 12px 4px 12px 4px;
+                background: rgba(255, 255, 255, 0.28);
+                color: var(--ink-soft);
+                font-size: 0.74rem;
+                font-weight: 900;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                cursor: pointer;
+                user-select: none;
+            }
+
+            .alarm-target input {
+                position: absolute;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .alarm-target.active {
+                border-color: rgba(157, 64, 46, 0.42);
+                background:
+                    linear-gradient(135deg, rgba(157, 64, 46, 0.18), transparent 52%),
+                    rgba(157, 64, 46, 0.08);
+                color: var(--ink);
+            }
+
             .control-row {
                 display: flex;
                 justify-content: space-between;
@@ -894,6 +932,20 @@
                                 <p class="muted">Nur hier werden Bewegungen ausgewertet und Alarme gemeldet.</p>
                             </div>
                         </div>
+                        <div class="alarm-targets" aria-label="Alarm auslösen bei">
+                            <label class="alarm-target active">
+                                <input id="alarmHumanToggle" type="checkbox" checked />
+                                <span>Mensch</span>
+                            </label>
+                            <label class="alarm-target">
+                                <input id="alarmAnimalToggle" type="checkbox" />
+                                <span>Tier</span>
+                            </label>
+                            <label class="alarm-target">
+                                <input id="alarmMotionToggle" type="checkbox" />
+                                <span>Bewegung</span>
+                            </label>
+                        </div>
                         <div class="range-field">
                             <div class="range-label">
                                 <span>Start</span>
@@ -975,7 +1027,7 @@
                 <div class="alarm-banner" id="alarmBanner" role="status" aria-live="assertive">
                     <span class="alarm-dot"></span>
                     <div>
-                        <strong>Alarm: Mensch erkannt</strong>
+                        <strong>Alarm ausgelöst</strong>
                         <span id="alarmBannerText">Alarm im aktiven Zeitraum.</span>
                     </div>
                 </div>
@@ -1003,6 +1055,9 @@
             const alarmWindowText = document.getElementById("alarmWindowText");
             const alarmArmedState = document.getElementById("alarmArmedState");
             const alarmCard = document.getElementById("alarmCard");
+            const alarmHumanToggle = document.getElementById("alarmHumanToggle");
+            const alarmAnimalToggle = document.getElementById("alarmAnimalToggle");
+            const alarmMotionToggle = document.getElementById("alarmMotionToggle");
             const alarmBanner = document.getElementById("alarmBanner");
             const alarmBannerText = document.getElementById("alarmBannerText");
             const reloadButton = document.getElementById("reloadButton");
@@ -1020,6 +1075,11 @@
             let lastAlarmKey = null;
             let lastAlarmArmedState = null;
             let alarmAudioContext = null;
+            const alarmTargetToggles = [
+                alarmHumanToggle,
+                alarmAnimalToggle,
+                alarmMotionToggle,
+            ];
 
             function currentStreamText() {
                 return isAlarmArmedLocally()
@@ -1075,6 +1135,20 @@
                     normalizeMinutes(alarmStartSlider.value),
                     normalizeMinutes(alarmEndSlider.value)
                 );
+            }
+
+            function normalizeAlarmLabels(labels = {}) {
+                return {
+                    mensch: labels.mensch ?? true,
+                    tier: labels.tier ?? false,
+                    bewegung: labels.bewegung ?? false,
+                };
+            }
+
+            function updateAlarmTargetButtons() {
+                for (const toggle of alarmTargetToggles) {
+                    toggle.closest(".alarm-target").classList.toggle("active", toggle.checked);
+                }
             }
 
             function updateAlarmControls(serverStatus = null) {
@@ -1234,10 +1308,11 @@
                 }
 
                 lastAlarmKey = alarmKey;
-                alarmBannerText.textContent = `${formatTime(detection.timestamp)} · Mensch im Zeitfenster.`;
+                const alarmLabel = detection.label || "Bewegung";
+                alarmBannerText.textContent = `${formatTime(detection.timestamp)} · ${alarmLabel} im Zeitfenster.`;
                 viewer.classList.add("alarm-active");
                 alarmBanner.classList.add("visible");
-                streamStatus.textContent = "Alarm: Mensch erkannt.";
+                streamStatus.textContent = `Alarm: ${alarmLabel}.`;
                 playAlarmTone();
 
                 window.clearTimeout(alarmTimeout);
@@ -1266,6 +1341,11 @@
                         enabled: true,
                         start_minutes: normalizeMinutes(alarmStartSlider.value),
                         end_minutes: normalizeMinutes(alarmEndSlider.value),
+                        labels: {
+                            mensch: alarmHumanToggle.checked,
+                            tier: alarmAnimalToggle.checked,
+                            bewegung: alarmMotionToggle.checked,
+                        },
                     },
                 };
             }
@@ -1301,6 +1381,11 @@
                     mirrorToggle.checked = Boolean(settings.mirror);
                     alarmStartSlider.value = normalizeMinutes(alarmSettings.start_minutes);
                     alarmEndSlider.value = normalizeMinutes(alarmSettings.end_minutes);
+                    const alarmLabels = normalizeAlarmLabels(alarmSettings.labels || {});
+                    alarmHumanToggle.checked = alarmLabels.mensch;
+                    alarmAnimalToggle.checked = alarmLabels.tier;
+                    alarmMotionToggle.checked = alarmLabels.bewegung;
+                    updateAlarmTargetButtons();
                     updateLocalViewOptions();
                     updateAlarmControls(state.alarm_status || null);
 
@@ -1331,6 +1416,13 @@
                 updateAlarmControls();
                 queueSettingsSave();
             });
+            for (const toggle of alarmTargetToggles) {
+                toggle.addEventListener("change", () => {
+                    unlockAlarmAudio();
+                    updateAlarmTargetButtons();
+                    queueSettingsSave();
+                });
+            }
             reloadButton.addEventListener("click", () => {
                 unlockAlarmAudio();
                 reconnectStream();
